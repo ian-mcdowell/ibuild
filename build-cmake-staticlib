@@ -18,9 +18,6 @@ fi
 echo "Configuring build system for $REPO. Architectures: $ARCHS"
 echo "CMake files: $MAKEDIR"
 
-# Clear existing makedir if it exists
-rm -rf $MAKEDIR
-
 for ARCH in $ARCHS; do
     ARCHDIR="$MAKEDIR/$ARCH"
     ARCHARGS=$(get_per_arch_args)
@@ -74,3 +71,6 @@ for LIBNAME in $LIBNAMES; do
 done
 
 echo "Build complete. Files located at: $DESTINATION"
+
+# Delete temporary directory with CMakeFiles
+rm -rf $MAKEDIR
