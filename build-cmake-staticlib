@@ -3,7 +3,8 @@
 set -e
 
 source "$(dirname $0)/xcode-setup.sh"
-MAKEDIR="${TARGET_TEMP_DIR}/cmakefiles"
+BUILD_ID=$(cat /dev/urandom | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+MAKEDIR="${TARGET_TEMP_DIR}/${BUILD_ID}"
 
 if ! [ -x "$(command -v cmake)" ]; then
     echo "CMake is not installed. Visit https://cmake.org for more information."
