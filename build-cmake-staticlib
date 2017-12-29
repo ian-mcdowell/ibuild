@@ -21,6 +21,7 @@ echo "CMake files: $MAKEDIR"
 for ARCH in $ARCHS; do
     ARCHDIR="$MAKEDIR/$ARCH"
     ARCHARGS=$(get_per_arch_args)
+    INSTALLDIR=$(get_arch_install_dir)
     echo "Configuring for arch: $ARCH. Per arch args: $ARCHARGS. Files will be in $ARCHDIR";
 
     mkdir -p $ARCHDIR
@@ -28,14 +29,14 @@ for ARCH in $ARCHS; do
 
     cmake \
         -DCMAKE_C_FLAGS="${DEPLOYMENT_TARGET_CLANG_FLAG_PREFIX}${!DEPLOYMENT_TARGET_CLANG_ENV_NAME} -fembed-bitcode" \
-        -DCMAKE_INSTALL_PREFIX="$(get_arch_install_dir)" \
+        -DCMAKE_INSTALL_PREFIX=${INSTALLDIR} \
         -DCMAKE_OSX_SYSROOT=${SDKROOT} \
         -DCMAKE_OSX_ARCHITECTURES=${ARCH} \
         -DCMAKE_C_COMPILER=${CC} \
         -DCMAKE_CXX_COMPILER=${CXX} \
         -DCMAKE_AR=${AR} \
         -DCMAKE_RANLIB=${RANLIB} \
-        -DCMAKE_PREFIX_PATH=${THIRDPARTY_LIBRARIES_DIR} \
+        -DCMAKE_PREFIX_PATH=${BUILT_PRODUCTS_DIR} \
         -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON \
         $ARCHARGS \
         $@ \
@@ -48,7 +49,12 @@ for ARCH in $ARCHS; do
     make install
 
     # Copy headers to arch-independent location
-    cp -R "$(get_arch_install_dir)/include" "$DESTINATION"
+    cp -R "$INSTALLDIR/include" "$DESTINATION"
+
+    # Copy pkgconfig to arch-independent location
+    cp -R "$INSTALLDIR/lib/pkgconfig" "$DESTINATION/lib"
+    # Replace INSTALLDIR with DESTINATION in pkgconfig files
+    find "$DESTINATION/lib/pkgconfig" -type f -exec sed -i '' -e "s|${INSTALLDIR}|${DESTINATION}|g" {} +
 done
 
 echo "Merging libraries for each archicture into fat library: $LIBNAMES."
