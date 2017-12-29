@@ -46,6 +46,9 @@ for ARCH in $ARCHS; do
 
     make -j$(getconf _NPROCESSORS_ONLN)
     make install
+
+    # Copy headers to arch-independent location
+    cp -R "$(get_arch_install_dir)/include" "$DESTINATION"
 done
 
 echo "Merging libraries for each archicture into fat library: $LIBNAMES."

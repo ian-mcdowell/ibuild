@@ -38,6 +38,7 @@ for ARCH in $ARCHS; do
     make -j$(getconf _NPROCESSORS_ONLN)
     make $INSTALL_COMMAND
 
+    # Copy headers to arch-independent location
     cp -R "$(get_arch_install_dir)/include" "$DESTINATION"
 done
 
