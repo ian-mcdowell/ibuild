@@ -23,7 +23,7 @@ cd $REPO
 for ARCH in $ARCHS; do
     ARCHARGS=$(get_per_arch_args)
     echo "Configuring for arch: $ARCH. Per arch args: $ARCHARGS.";
-    make clean
+    make clean || true
 
     ./configure \
         $@ \
