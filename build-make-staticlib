@@ -23,7 +23,6 @@ cd $REPO
 for ARCH in $ARCHS; do
     ARCHARGS=$(get_per_arch_args)
     echo "Configuring for arch: $ARCH. Per arch args: $ARCHARGS.";
-    make clean || true
 
     ./configure \
         $@ \
@@ -40,6 +39,8 @@ for ARCH in $ARCHS; do
 
     # Copy headers to arch-independent location
     cp -R "$(get_arch_install_dir)/include" "$DESTINATION"
+
+    make clean || true
 done
 
 echo "Merging libraries for each archicture into fat library: $LIBNAMES."
