@@ -8,6 +8,26 @@ if [ -z "$REPO" ]; then
     exit 1;
 fi
 
+if [ -z "$LIBNAMES" ]; then
+    echo "Please provide a list of library names (without .a extension) as an environment variable.";
+    exit 1;
+fi
+
+# Check if libraries are already built.
+ALREADY_BUILT=0
+for LIBNAME in $LIBNAMES; do
+    if [ -f "$DESTINATION/lib/$LIBNAME.a" ]; then
+        ALREADY_BUILT=1
+    else
+        ALREADY_BUILT=0
+        break
+    done
+fi
+if [ "$ALREADY_BUILT" -eq "1" ]; then
+    echo "Already built.";
+    exit 0;
+fi
+
 CC=$(xcrun -sdk ${SDKROOT} -find clang)
 CXX=$(xcrun -sdk ${SDKROOT} -find clang++)
 AR=$(xcrun -sdk ${SDKROOT} -find ar)

@@ -4,11 +4,6 @@ set -e
 
 source "$(dirname $0)/xcode-setup.sh"
 
-if [ -z "$LIBNAMES" ]; then
-    echo "Please provide a list of library names (without .a extension) as an environment variable.";
-    exit 1;
-fi
-
 echo "Configuring build system for $REPO. Architectures: $ARCHS"
 
 MAKEDIR="${TARGET_TEMP_DIR}/per-arch"
@@ -23,6 +18,8 @@ cd $REPO
 for ARCH in $ARCHS; do
     ARCHARGS=$(get_per_arch_args)
     echo "Configuring for arch: $ARCH. Per arch args: $ARCHARGS.";
+
+    make clean || true
 
     ./configure \
         $@ \

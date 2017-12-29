@@ -26,7 +26,7 @@ for ARCH in $ARCHS; do
     echo "Configuring for arch: $ARCH. Per arch args: $ARCHARGS. Files will be in $ARCHDIR";
 
     mkdir -p $ARCHDIR
-    cd $ARCHDIR
+    pushd $ARCHDIR
 
     cmake \
         -DCMAKE_C_FLAGS="${DEPLOYMENT_TARGET_CLANG_FLAG_PREFIX}${!DEPLOYMENT_TARGET_CLANG_ENV_NAME} -fembed-bitcode" \
@@ -56,6 +56,8 @@ for ARCH in $ARCHS; do
     cp -R "$INSTALLDIR/lib/pkgconfig" "$DESTINATION/lib"
     # Replace INSTALLDIR with DESTINATION in pkgconfig files
     find "$DESTINATION/lib/pkgconfig" -type f -exec sed -i '' -e "s|${INSTALLDIR}|${DESTINATION}|g" {} +
+
+    popd
 done
 
 echo "Merging libraries for each archicture into fat library: $LIBNAMES."
