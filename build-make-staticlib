@@ -1,0 +1,57 @@
+#!/bin/bash
+
+set -e
+
+source "$(dirname $0)/xcode-setup.sh"
+
+if [ -z "$LIBNAMES" ]; then
+    echo "Please provide a list of library names (without .a extension) as an environment variable.";
+    exit 1;
+fi
+
+echo "Configuring build system for $REPO. Architectures: $ARCHS"
+
+MAKEDIR="${TARGET_TEMP_DIR}/per-arch"
+if [ -z "$INSTALL_COMMAND" ]; then
+    INSTALL_COMMAND="install"
+fi
+
+mkdir -p "$DESTINATION"
+
+cd $REPO
+
+for ARCH in $ARCHS; do
+    ARCHARGS=$(get_per_arch_args)
+    echo "Configuring for arch: $ARCH. Per arch args: $ARCHARGS.";
+    make clean
+
+    ./configure \
+        $@ \
+        $ARCHARGS \
+        "-arch $ARCH" \
+        "-isysroot ${SDKROOT}" \
+        "${DEPLOYMENT_TARGET_CLANG_FLAG_PREFIX}${!DEPLOYMENT_TARGET_CLANG_ENV_NAME}" \
+        "-fembed-bitcode" \
+        --prefix=$(get_arch_install_dir)
+    
+    echo "Building for $ARCH."
+    make -j$(getconf _NPROCESSORS_ONLN)
+    make $INSTALL_COMMAND
+
+    cp -R "$(get_arch_install_dir)/include" "$DESTINATION"
+done
+
+echo "Merging libraries for each archicture into fat library: $LIBNAMES."
+
+mkdir -p "$DESTINATION/lib"
+
+# Loop over output files
+for LIBNAME in $LIBNAMES; do
+    for ARCH in $ARCHS; do
+        LIPOARCHS="$LIPOARCHS -arch $ARCH $(get_arch_install_dir)/lib/$LIBNAME.a"
+    done
+    lipo -create -output "$DESTINATION/lib/$LIBNAME.a" $LIPOARCHS
+    unset LIPOARCHS
+done
+
+echo "Build complete. Files located at: $DESTINATION"

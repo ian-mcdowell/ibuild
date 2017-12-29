@@ -1,0 +1,64 @@
+#!/bin/bash
+
+set -e
+
+source "$(dirname $0)/xcode-setup.sh"
+MAKEDIR="${TARGET_TEMP_DIR}/cmakefiles"
+
+if ! [ -x "$(command -v cmake)" ]; then
+    echo "CMake is not installed. Visit https://cmake.org for more information."
+    exit 1;
+fi
+
+if [ ! -f "$REPO/CMakeLists.txt" ]; then
+    echo "The repository you provided does not contain a CMakeLists.txt in its root. Unable to build.";
+    exit 1;
+fi
+
+echo "Configuring build system for $REPO. Architectures: $ARCHS"
+echo "CMake files: $MAKEDIR"
+
+for ARCH in $ARCHS; do
+    ARCHDIR="$MAKEDIR/$ARCH"
+    ARCHARGS=$(get_per_arch_args)
+    echo "Configuring for arch: $ARCH. Per arch args: $ARCHARGS. Files will be in $ARCHDIR";
+
+    mkdir -p $ARCHDIR
+    cd $ARCHDIR
+
+    cmake \
+        -DCMAKE_C_FLAGS="${DEPLOYMENT_TARGET_CLANG_FLAG_PREFIX}${!DEPLOYMENT_TARGET_CLANG_ENV_NAME} -fembed-bitcode" \
+        -DCMAKE_INSTALL_PREFIX="$(get_arch_install_dir)" \
+        -DCMAKE_OSX_SYSROOT=${SDKROOT} \
+        -DCMAKE_OSX_ARCHITECTURES=${ARCH} \
+        -DCMAKE_C_COMPILER=${CC} \
+        -DCMAKE_CXX_COMPILER=${CXX} \
+        -DCMAKE_AR=${AR} \
+        -DCMAKE_RANLIB=${RANLIB} \
+        -DCMAKE_PREFIX_PATH=${THIRDPARTY_LIBRARIES_DIR} \
+        -DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON \
+        $ARCHARGS \
+        $@ \
+        $REPO
+
+    echo "Configuration done."
+    echo "Building..."
+
+    make -j$(getconf _NPROCESSORS_ONLN)
+    make install
+done
+
+echo "Merging libraries for each archicture into fat library: $LIBNAMES."
+
+mkdir -p "$DESTINATION/lib"
+
+# Loop over output files
+for LIBNAME in $LIBNAMES; do
+    for ARCH in $ARCHS; do
+        LIPOARCHS="$LIPOARCHS -arch $ARCH $(get_arch_install_dir)/lib/$LIBNAME.a"
+    done
+    lipo -create -output "$DESTINATION/lib/$LIBNAME.a" $LIPOARCHS
+    unset LIPOARCHS
+done
+
+echo "Build complete. Files located at: $DESTINATION"
