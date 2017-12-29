@@ -21,8 +21,8 @@ for LIBNAME in $LIBNAMES; do
     else
         ALREADY_BUILT=0
         break
-    done
-fi
+    fi
+done
 if [ "$ALREADY_BUILT" -eq "1" ]; then
     echo "Already built.";
     exit 0;
