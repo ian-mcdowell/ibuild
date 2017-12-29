@@ -18,6 +18,9 @@ fi
 echo "Configuring build system for $REPO. Architectures: $ARCHS"
 echo "CMake files: $MAKEDIR"
 
+# Clear existing makedir if it exists
+rm -rf $MAKEDIR
+
 for ARCH in $ARCHS; do
     ARCHDIR="$MAKEDIR/$ARCH"
     ARCHARGS=$(get_per_arch_args)
