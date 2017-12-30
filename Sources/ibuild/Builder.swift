@@ -266,7 +266,7 @@ class CMakeBuilder: Builder {
             "-DCMAKE_INSTALL_PREFIX=\(buildOutputURL.path)",
             "-DCMAKE_OSX_SYSROOT=\(self.sysroot.path)",
             "-DCMAKE_OSX_ARCHITECTURES=\(architecture)",
-            "-DCMAKE_PREFIX_PATH=\(self.buildProducts.path)",
+            "-DCMAKE_PREFIX_PATH=\(self.buildRoot.path)",
             "-DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON"
         ]
         if let packageArgs = self.package.buildArgs {
