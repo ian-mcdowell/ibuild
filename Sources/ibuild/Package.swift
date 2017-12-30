@@ -20,6 +20,7 @@ struct Package: Decodable {
     }
 
     enum BuildSystem: String, Decodable {
+        case none
         case cmake
         case make
         case xcode

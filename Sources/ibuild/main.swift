@@ -54,8 +54,9 @@ do {
                 print("\(dependency.name) - \(dependency.url)")
             }
             for dependency in sorted {
-                let builder = try Builder.forPackage(dependency, projectSourceMap: projectSourceMap, buildRoot: buildRoot)
-                try builder.build()
+                if let builder = try Builder.forPackage(dependency, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
+                    try builder.build()
+                }
             }
         }
 
@@ -65,8 +66,9 @@ do {
         }
 
         // Build library
-        let builder = try Builder.forPackage(package, projectSourceMap: projectSourceMap, buildRoot: buildRoot)
-        try builder.build()
+        if let builder = try Builder.forPackage(package, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
+            try builder.build()
+        }
 
     case "clean":
         try FileManager.default.removeItem(at: buildRoot)

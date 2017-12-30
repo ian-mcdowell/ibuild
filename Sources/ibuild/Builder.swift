@@ -1,7 +1,7 @@
 import Foundation
 
 class Builder {
-    static func forPackage(_ package: Package, projectSourceMap: ProjectSourceMap, buildRoot: URL) throws -> Builder {
+    static func forPackage(_ package: Package, projectSourceMap: ProjectSourceMap, buildRoot: URL) throws -> Builder? {
         let packageRoot = URL(fileURLWithPath: projectSourceMap.locations[package.url]!)
         let sourceRoot: URL
         if let library = package.library {
@@ -11,6 +11,7 @@ class Builder {
         }
         let builderClass: Builder.Type
         switch package.buildSystem {
+            case .none: return nil
             case .cmake: builderClass = CMakeBuilder.self 
             case .make: builderClass = MakeBuilder.self 
             case .xcode: builderClass = XcodeBuilder.self 
