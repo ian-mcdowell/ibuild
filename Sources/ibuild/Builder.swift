@@ -127,6 +127,7 @@ class Builder {
         if let arch = architectures.first {
             let archOutput = archOutputs[arch]!
             try self.copyHeadersAndMetadata(fromURL: archOutput, toURL: buildRoot)
+            try self.copyHeadersAndMetadata(fromURL: archOutput, toURL: buildRoot.appendingPathComponent(package.name), isPackageSpecific: true)
         }
 
         // LIPO to create fat binary for each library
@@ -161,7 +162,7 @@ class Builder {
         )
     }
 
-    fileprivate func copyHeadersAndMetadata(fromURL url: URL, toURL: URL) throws {
+    fileprivate func copyHeadersAndMetadata(fromURL url: URL, toURL: URL, isPackageSpecific: Bool = false) throws {
         // Copy headers
         let headersURL = url.appendingPathComponent("include")
         if FileManager.default.fileExists(atPath: headersURL.path) {
@@ -188,6 +189,10 @@ class Builder {
         let swiftmoduleURL = url.appendingPathComponent("swiftmodules")
         if FileManager.default.fileExists(atPath: swiftmoduleURL.path) {
             try Command.cp(from: swiftmoduleURL, to: toURL)
+        }
+
+        if isPackageSpecific, let modulemap = self.package.modulemap {
+            try Command.cp(from: packageRoot.appendingPathComponent(modulemap), to: buildRoot.appendingPathComponent("include"))
         }
     }
 
