@@ -84,4 +84,5 @@ do {
 
 } catch {
     print(error.localizedDescription)
+    exit(1)
 }
