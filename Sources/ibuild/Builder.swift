@@ -138,11 +138,16 @@ class Builder {
         let libRoot = buildRoot.appendingPathComponent("lib")
         try FileManager.default.createDirectory(atPath: libRoot.path, withIntermediateDirectories: true, attributes: nil)
         for libraryName in libraryOutputs {
+            let archMap = architectures.map { arch in
+                return (arch, self.path(ofLibrary: libraryName, inBuildRoot: archOutputs[arch]!))
+            }
             try self.lipo(
-                from: architectures.map { arch in
-                    return (arch, self.path(ofLibrary: libraryName, inBuildRoot: archOutputs[arch]!))
-                }, 
+                from: archMap, 
                 toURL: self.path(ofLibrary: libraryName, inBuildRoot: buildRoot)
+            )
+            try self.lipo(
+                from: archMap, 
+                toURL: self.path(ofLibrary: libraryName, inBuildRoot: buildRoot.appendingPathComponent(package.name))
             )
         }
     }
