@@ -167,6 +167,8 @@ class Builder {
     }
 
     fileprivate func copyHeadersAndMetadata(fromURL url: URL, toURL: URL, isPackageSpecific: Bool = false) throws {
+        try FileManager.default.createDirectory(atPath: toURL.path, withIntermediateDirectories: true, attributes: nil)
+        
         // Copy headers
         let headersURL = url.appendingPathComponent("include")
         if FileManager.default.fileExists(atPath: headersURL.path) {
