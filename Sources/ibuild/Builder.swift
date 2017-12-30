@@ -30,11 +30,7 @@ class Builder {
         self.buildRoot = buildRoot
 
         let environment = ProcessInfo.processInfo.environment
-        if let buildProducts = environment["BUILT_PRODUCTS_DIR"] {
-            self.buildProducts = URL(fileURLWithPath: buildProducts).appendingPathComponent(sourceRoot.lastPathComponent)
-        } else {
-            self.buildProducts = buildRoot.appendingPathComponent("products").appendingPathComponent(sourceRoot.lastPathComponent)
-        }
+        self.buildProducts = buildRoot.appendingPathComponent("products").appendingPathComponent(sourceRoot.lastPathComponent)
 
         if let archs = environment["ARCHS"] {
             self.architectures = archs.components(separatedBy: .whitespaces)

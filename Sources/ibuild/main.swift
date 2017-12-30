@@ -10,9 +10,10 @@ enum IBuildError: LocalizedError {
     }
 }
 
-    do {
+do {
+    let environment = ProcessInfo.processInfo.environment
     // Get package root (where the current package to build is)
-    guard let packageRootEnv = ProcessInfo.processInfo.environment["PACKAGE_ROOT"] else {
+    guard let packageRootEnv = environment["PACKAGE_ROOT"] else {
         throw IBuildError.packageRootNotFound
     }
     let packageRoot = URL(fileURLWithPath: packageRootEnv)
