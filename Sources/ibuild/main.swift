@@ -19,7 +19,12 @@ do {
     let packageRoot = URL(fileURLWithPath: packageRootEnv)
     let filesRoot = packageRoot.appendingPathComponent(".ibuild")
     let sourceRoot = filesRoot.appendingPathComponent("checkout")
-    let buildRoot = filesRoot.appendingPathComponent("build")
+    let buildRoot: URL
+    if let targetBuildDir = environment["TARGET_BUILD_DIR"] {
+        buildRoot = targetBuildDir
+    } else {
+        buildRoot = filesRoot.appendingPathComponent("build")
+    }
 
     // Parse cmd line
     let argc = CommandLine.arguments.count

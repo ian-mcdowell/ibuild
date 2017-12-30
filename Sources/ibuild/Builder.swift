@@ -40,7 +40,11 @@ class Builder {
         self.buildRoot = buildRoot
 
         let environment = ProcessInfo.processInfo.environment
-        self.buildProducts = buildRoot.appendingPathComponent("products").appendingPathComponent(sourceRoot.lastPathComponent)
+        if let tmpDir = environment["TARGET_TEMP_DIR"] {
+            self.buildProducts = tmpDir
+        } else {
+            self.buildProducts = buildRoot.appendingPathComponent("products").appendingPathComponent(sourceRoot.lastPathComponent)
+        }
 
         if let archs = environment["ARCHS"] {
             self.architectures = archs.components(separatedBy: .whitespaces)
