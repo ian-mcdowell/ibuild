@@ -348,6 +348,8 @@ class XcodeBuilder: Builder {
         let deploymentTarget: String
         if let deploymentTargetName = environment["DEPLOYMENT_TARGET_SETTING_NAME"], let value = environment[deploymentTargetName] {
             deploymentTarget = "\(deploymentTargetName)=\(value)"
+        } else if let value = environment["IPHONEOS_DEPLOYMENT_TARGET"] {
+            deploymentTarget = "IPHONEOS_DEPLOYMENT_TARGET=\(value)"
         } else {
             deploymentTarget = "IPHONEOS_DEPLOYMENT_TARGET=9.0"
         }
