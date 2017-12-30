@@ -1,7 +1,9 @@
 import Foundation
 
 class Builder {
-    static func forPackage(_ package: Package, packageRoot: URL, sourceRoot: URL, buildRoot: URL) throws -> Builder {
+    static func forPackage(_ package: Package, projectSourceMap: ProjectSourceMap, buildRoot: URL) throws -> Builder {
+        let packageRoot = URL(fileURLWithPath: projectSourceMap.locations[package.url]!)
+        let sourceRoot = URL(fileURLWithPath: projectSourceMap.locations[package.library.url]!)
         switch package.buildSystem {
             case .cmake: return try CMakeBuilder(package: package, packageRoot: packageRoot, sourceRoot: sourceRoot, buildRoot: buildRoot)
             case .make: return try MakeBuilder(package: package, packageRoot: packageRoot, sourceRoot: sourceRoot, buildRoot: buildRoot)
