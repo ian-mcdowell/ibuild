@@ -187,6 +187,15 @@ class Builder {
                 try String(contentsOf: path).replacingOccurrences(of: url.path, with: toURL.path).write(to: path, atomically: true, encoding: .utf8)
             }
         }
+
+        // Copy swiftmodules
+        let swiftmoduleURL = url.appendingPathComponent("swiftmodules")
+        if FileManager.default.fileExists(atPath: swiftmoduleURL.path) {
+            try Command.trySpawn(
+                "/bin/cp",
+                ["-R", swiftmoduleURL.path, toURL.path]
+            )
+        }
     }
 
     fileprivate func path(ofLibrary library: String, inBuildRoot buildRoot: URL) -> URL {
@@ -385,6 +394,18 @@ class XcodeBuilder: Builder {
                 "/bin/cp",
                 ["-R", xcodeOutputURL.appendingPathComponent(libraryName + ".a").path, libURL.path]
             )
+        }
+
+        // Copy swiftmodule(s)
+        let swiftmoduleURL = toURL.appendingPathComponent("swiftmodules")
+        for path in try FileManager.default.contentsOfDirectory(at: xcodeOutputURL, includingPropertiesForKeys: nil, options: []) {
+            if path.pathExtension == "swiftmodule" {
+                try FileManager.default.createDirectory(atPath: swiftmoduleURL.path, withIntermediateDirectories: true, attributes: nil)
+                try Command.trySpawn(
+                    "/bin/cp",
+                    ["-R", path.path, swiftmoduleURL.appendingPathComponent(path.lastPathComponent).path]
+                )
+            }
         }
     }
 }
