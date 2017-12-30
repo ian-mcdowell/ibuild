@@ -14,6 +14,7 @@ class Builder {
     let env: [String: String]
 
     let architectures: [String]
+    let platformName: String
     /// Root of the package that's building the library
     let packageRoot: URL
     /// Root of the library to be built
@@ -37,8 +38,13 @@ class Builder {
         } else {
             self.architectures = ["arm64", "armv7"]
         }
+        if let platformName = environment["PLATFORM_NAME"] {
+            self.platformName = platformName
+        } else {
+            self.platformName = "iphoneos"
+        }
 
-        self.sysroot = URL(fileURLWithPath: try Command.tryExec("/usr/bin/xcrun", ["-sdk", "iphoneos", "--show-sdk-path"]))
+        self.sysroot = URL(fileURLWithPath: try Command.tryExec("/usr/bin/xcrun", ["-sdk", self.platformName, "--show-sdk-path"]))
     
         if let dtPrefix = environment["DEPLOYMENT_TARGET_CLANG_PREFIX"], let dtName = environment["DEPLOYMENT_TARGET_CLANG_ENV_NAME"], let dt = environment[dtName] {
             self.deploymentTarget = dtPrefix + dt
@@ -210,7 +216,7 @@ class MakeBuilder: Builder {
         if let packageArgs = self.package.buildArgs {
             args = packageArgs + args
         }
-        if let packageArchSpecificArgs = self.package.buildArchSpecificArgs?["iphoneos"]?[architecture] {
+        if let packageArchSpecificArgs = self.package.buildArchSpecificArgs?[self.platformName]?[architecture] {
             args = packageArchSpecificArgs + args
         }
 
@@ -272,7 +278,7 @@ class CMakeBuilder: Builder {
         if let packageArgs = self.package.buildArgs {
             args = args + packageArgs
         }
-        if let packageArchSpecificArgs = self.package.buildArchSpecificArgs?["iphoneos"]?[architecture] {
+        if let packageArchSpecificArgs = self.package.buildArchSpecificArgs?[self.platformName]?[architecture] {
             args = args + packageArchSpecificArgs
         }
 
