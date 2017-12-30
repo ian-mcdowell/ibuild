@@ -53,6 +53,8 @@ struct Package: Decodable {
     // Command to pass to make to install software
     let installCommand: String?
 
+    let modulemap: String?
+
     /// Decode a Package from the property list at the given local URL
     static func inProject(fileURL: URL) throws -> Package {
         let packageURL = fileURL.appendingPathComponent("build.plist")

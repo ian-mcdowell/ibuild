@@ -72,6 +72,13 @@ struct Command {
         }
     }
 
+    static func cp(from: URL, to: URL) throws {
+        try Command.trySpawn(
+            "/bin/cp",
+            ["-R", from.path, to.path]
+        )
+    }
+
     private static func mergeEnv(_ env: [String: String]) -> [String: String] {
         var e = ProcessInfo.processInfo.environment
         for (key, value) in env {

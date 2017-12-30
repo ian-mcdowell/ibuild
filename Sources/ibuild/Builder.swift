@@ -167,10 +167,7 @@ class Builder {
         if FileManager.default.fileExists(atPath: headersURL.path) {
             let headersRoot = buildRoot.appendingPathComponent("include")
             try FileManager.default.createDirectory(atPath: headersRoot.path, withIntermediateDirectories: true, attributes: nil)
-            try Command.trySpawn(
-                "/bin/cp",
-                ["-R", headersURL.path, toURL.path]
-            )
+            try Command.cp(from: headersURL, to: toURL)
         }
 
         // Copy pkgconfig
@@ -179,10 +176,8 @@ class Builder {
             let libRoot = toURL.appendingPathComponent("lib")
             let pkgconfigRoot = libRoot.appendingPathComponent("pkgconfig")
             try FileManager.default.createDirectory(atPath: pkgconfigRoot.path, withIntermediateDirectories: true, attributes: nil)
-            try Command.trySpawn(
-                "/bin/cp",
-                ["-R", pkgconfigURL.path, libRoot.path]
-            )
+            try Command.cp(from: pkgconfigURL, to: libRoot)
+
             // Replace arch output path with new path for each file
             for path in try FileManager.default.contentsOfDirectory(at: pkgconfigRoot, includingPropertiesForKeys: nil, options: []) {
                 try String(contentsOf: path).replacingOccurrences(of: url.path, with: toURL.path).write(to: path, atomically: true, encoding: .utf8)
@@ -192,10 +187,7 @@ class Builder {
         // Copy swiftmodules
         let swiftmoduleURL = url.appendingPathComponent("swiftmodules")
         if FileManager.default.fileExists(atPath: swiftmoduleURL.path) {
-            try Command.trySpawn(
-                "/bin/cp",
-                ["-R", swiftmoduleURL.path, toURL.path]
-            )
+            try Command.cp(from: swiftmoduleURL, to: toURL)
         }
     }
 
@@ -391,10 +383,7 @@ class XcodeBuilder: Builder {
         try FileManager.default.createDirectory(atPath: libURL.path, withIntermediateDirectories: true, attributes: nil)
 
         for libraryName in self.package.libraryOutputs ?? [] {
-            try Command.trySpawn(
-                "/bin/cp",
-                ["-R", xcodeOutputURL.appendingPathComponent(libraryName + ".a").path, libURL.path]
-            )
+            try Command.cp(from: xcodeOutputURL.appendingPathComponent(libraryName + ".a"), to: libURL)
         }
 
         // Copy swiftmodule(s)
@@ -402,10 +391,7 @@ class XcodeBuilder: Builder {
         for path in try FileManager.default.contentsOfDirectory(at: xcodeOutputURL, includingPropertiesForKeys: nil, options: []) {
             if path.pathExtension == "swiftmodule" {
                 try FileManager.default.createDirectory(atPath: swiftmoduleURL.path, withIntermediateDirectories: true, attributes: nil)
-                try Command.trySpawn(
-                    "/bin/cp",
-                    ["-R", path.path, swiftmoduleURL.appendingPathComponent(path.lastPathComponent).path]
-                )
+                try Command.cp(from: path, to: swiftmoduleURL.appendingPathComponent(path.lastPathComponent))
             }
         }
     }

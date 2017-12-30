@@ -68,6 +68,10 @@ do {
         // Build library
         if let builder = try Builder.forPackage(package, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
             try builder.build()
+
+            if let modulemap = package.modulemap {
+                try Command.cp(from: packageRoot.appendingPathComponent(modulemap), to: buildRoot.appendingPathComponent("include"))
+            }
         }
 
     case "clean":
