@@ -22,6 +22,7 @@ struct Package: Decodable {
     enum BuildSystem: String, Decodable {
         case cmake
         case make
+        case xcode
     }
 
     // Name of the package
@@ -31,7 +32,7 @@ struct Package: Decodable {
     let url: String
 
     // Library the package will build
-    let library: Library
+    let library: Library?
 
     // Other packages that must be built first
     let dependencies: [Library]

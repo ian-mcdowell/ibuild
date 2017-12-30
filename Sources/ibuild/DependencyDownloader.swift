@@ -23,7 +23,9 @@ struct DependencyDownloader {
 
             packages.append(contentsOf: try downloadDependencies(ofPackage: downloadedPackage, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap))
         }
-        try downloadLibrary(package.library, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+        if let library = package.library {
+            try downloadLibrary(library, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+        }
 
         return packages
     }

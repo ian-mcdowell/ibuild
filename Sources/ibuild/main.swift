@@ -60,7 +60,9 @@ do {
         }
 
         // Download library
-        try DependencyDownloader.downloadLibrary(package.library, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+        if let library = package.library {
+            try DependencyDownloader.downloadLibrary(library, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+        }
 
         // Build library
         let builder = try Builder.forPackage(package, projectSourceMap: projectSourceMap, buildRoot: buildRoot)

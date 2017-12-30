@@ -3,11 +3,19 @@ import Foundation
 class Builder {
     static func forPackage(_ package: Package, projectSourceMap: ProjectSourceMap, buildRoot: URL) throws -> Builder {
         let packageRoot = URL(fileURLWithPath: projectSourceMap.locations[package.url]!)
-        let sourceRoot = URL(fileURLWithPath: projectSourceMap.locations[package.library.url]!)
-        switch package.buildSystem {
-            case .cmake: return try CMakeBuilder(package: package, packageRoot: packageRoot, sourceRoot: sourceRoot, buildRoot: buildRoot)
-            case .make: return try MakeBuilder(package: package, packageRoot: packageRoot, sourceRoot: sourceRoot, buildRoot: buildRoot)
+        let sourceRoot: URL
+        if let library = package.library {
+            sourceRoot = URL(fileURLWithPath: projectSourceMap.locations[library.url]!)
+        } else {
+            sourceRoot = packageRoot
         }
+        let builderClass: Builder.Type
+        switch package.buildSystem {
+            case .cmake: builderClass = CMakeBuilder.self 
+            case .make: builderClass = MakeBuilder.self 
+            case .xcode: builderClass = XcodeBuilder.self 
+        }
+        return try builderClass.init(package: package, packageRoot: packageRoot, sourceRoot: sourceRoot, buildRoot: buildRoot)
     }
 
     let package: Package
@@ -24,7 +32,7 @@ class Builder {
     let sysroot: URL
     let deploymentTarget: String
 
-    init(package: Package, packageRoot: URL, sourceRoot: URL, buildRoot: URL) throws {
+    required init(package: Package, packageRoot: URL, sourceRoot: URL, buildRoot: URL) throws {
         self.package = package
         self.packageRoot = packageRoot
         self.sourceRoot = sourceRoot
@@ -36,7 +44,7 @@ class Builder {
         if let archs = environment["ARCHS"] {
             self.architectures = archs.components(separatedBy: .whitespaces)
         } else {
-            self.architectures = ["arm64", "armv7"]
+            self.architectures = ["arm64"]
         }
         if let platformName = environment["PLATFORM_NAME"] {
             self.platformName = platformName
@@ -70,6 +78,11 @@ class Builder {
     }
 
     func build() throws {
+        guard let libraryOutputs = self.package.libraryOutputs else {
+            print("No library outputs. Skipping build.")
+            return
+        }
+
         var archOutputs: [String: URL] = [:]
         for arch in architectures {
             print("Configuring for architecture: \(arch)")
@@ -82,7 +95,7 @@ class Builder {
 
             // Don't build if already exists
             var hasBuilt = true
-            for libraryName in self.package.libraryOutputs ?? [] {
+            for libraryName in libraryOutputs {
                 if !FileManager.default.fileExists(atPath: self.path(ofLibrary: libraryName, inBuildRoot: buildOutput).path) {
                     hasBuilt = false
                 }
@@ -104,7 +117,8 @@ class Builder {
                 fromURL: configureOutput
             )
             try self.install(
-                fromURL: configureOutput
+                fromURL: configureOutput,
+                toURL: buildOutput
             )
         }
 
@@ -117,7 +131,7 @@ class Builder {
         // LIPO to create fat binary for each library
         let libRoot = buildRoot.appendingPathComponent("lib")
         try FileManager.default.createDirectory(atPath: libRoot.path, withIntermediateDirectories: true, attributes: nil)
-        for libraryName in self.package.libraryOutputs ?? [] {
+        for libraryName in libraryOutputs {
             try self.lipo(
                 from: architectures.map { arch in
                     return (arch, self.path(ofLibrary: libraryName, inBuildRoot: archOutputs[arch]!))
@@ -131,7 +145,7 @@ class Builder {
 
     fileprivate func make(fromURL url: URL) throws {}
 
-    fileprivate func install(fromURL url: URL) throws {}
+    fileprivate func install(fromURL url: URL, toURL: URL) throws {}
 
     fileprivate func lipo(from architectureMap: [(architecture: String, url: URL)], toURL: URL) throws {
         print("Merging libraries \(architectureMap) to fat library at \(toURL)")
@@ -148,24 +162,30 @@ class Builder {
 
     fileprivate func copyHeadersAndMetadata(fromURL url: URL, toURL: URL) throws {
         // Copy headers
-        let headersRoot = buildRoot.appendingPathComponent("include")
-        try FileManager.default.createDirectory(atPath: headersRoot.path, withIntermediateDirectories: true, attributes: nil)
-        try Command.trySpawn(
-            "/bin/cp",
-            ["-R", url.appendingPathComponent("include").path, toURL.path]
-        )
+        let headersURL = url.appendingPathComponent("include")
+        if FileManager.default.fileExists(atPath: headersURL.path) {
+            let headersRoot = buildRoot.appendingPathComponent("include")
+            try FileManager.default.createDirectory(atPath: headersRoot.path, withIntermediateDirectories: true, attributes: nil)
+            try Command.trySpawn(
+                "/bin/cp",
+                ["-R", headersURL.path, toURL.path]
+            )
+        }
 
         // Copy pkgconfig
-        let libRoot = toURL.appendingPathComponent("lib")
-        let pkgconfigRoot = libRoot.appendingPathComponent("pkgconfig")
-        try FileManager.default.createDirectory(atPath: pkgconfigRoot.path, withIntermediateDirectories: true, attributes: nil)
-        try Command.trySpawn(
-            "/bin/cp",
-            ["-R", url.appendingPathComponent("lib").appendingPathComponent("pkgconfig").path, libRoot.path]
-        )
-        // Replace arch output path with new path for each file
-        for path in try FileManager.default.contentsOfDirectory(at: pkgconfigRoot, includingPropertiesForKeys: nil, options: []) {
-            try String(contentsOf: path).replacingOccurrences(of: url.path, with: toURL.path).write(to: path, atomically: true, encoding: .utf8)
+        let pkgconfigURL = url.appendingPathComponent("lib").appendingPathComponent("pkgconfig")
+        if FileManager.default.fileExists(atPath: pkgconfigURL.path) {
+            let libRoot = toURL.appendingPathComponent("lib")
+            let pkgconfigRoot = libRoot.appendingPathComponent("pkgconfig")
+            try FileManager.default.createDirectory(atPath: pkgconfigRoot.path, withIntermediateDirectories: true, attributes: nil)
+            try Command.trySpawn(
+                "/bin/cp",
+                ["-R", pkgconfigURL.path, libRoot.path]
+            )
+            // Replace arch output path with new path for each file
+            for path in try FileManager.default.contentsOfDirectory(at: pkgconfigRoot, includingPropertiesForKeys: nil, options: []) {
+                try String(contentsOf: path).replacingOccurrences(of: url.path, with: toURL.path).write(to: path, atomically: true, encoding: .utf8)
+            }
         }
     }
 
@@ -243,7 +263,7 @@ class MakeBuilder: Builder {
         )
     }
 
-    override func install(fromURL url: URL) throws {
+    override func install(fromURL url: URL, toURL: URL) throws {
         try Command.trySpawn(
             "/usr/bin/make",
             currentDirectory: url.path,
@@ -308,7 +328,7 @@ class CMakeBuilder: Builder {
         )
     }
 
-    override func install(fromURL url: URL) throws {
+    override func install(fromURL url: URL, toURL: URL) throws {
         try Command.trySpawn(
             "/usr/bin/make",
             currentDirectory: url.path,
@@ -316,5 +336,44 @@ class CMakeBuilder: Builder {
                 self.package.installCommand ?? "install"
             ]
         )
+    }
+}
+
+class XcodeBuilder: Builder {
+
+    override func configure(architecture: String, inURL url: URL, buildOutputURL: URL) throws {
+
+        var args = [
+            "build",
+            "-sdk", self.sysroot.path,
+            "-arch", architecture,
+            "OBJROOT=\(buildOutputURL.path)",
+            "SYMROOT=\(buildOutputURL.path)"
+        ]
+        if let packageArgs = self.package.buildArgs {
+            args = args + packageArgs
+        }
+        if let packageArchSpecificArgs = self.package.buildArchSpecificArgs?[self.platformName]?[architecture] {
+            args = args + packageArchSpecificArgs
+        }
+        try Command.trySpawn(
+            "/usr/bin/xcodebuild",
+            currentDirectory: self.sourceRoot.path,
+            args
+        )
+    }
+
+    override func install(fromURL url: URL, toURL: URL) throws {
+        let libURL = toURL.appendingPathComponent("lib")
+        let xcodeOutputURL = toURL.appendingPathComponent("Release-\(self.platformName)")
+
+        try FileManager.default.createDirectory(atPath: libURL.path, withIntermediateDirectories: true, attributes: nil)
+
+        for libraryName in self.package.libraryOutputs ?? [] {
+            try Command.trySpawn(
+                "/bin/cp",
+                ["-R", xcodeOutputURL.appendingPathComponent(libraryName + ".a").path, libURL.path]
+            )
+        }
     }
 }
