@@ -173,7 +173,7 @@ class Builder {
 
         // Copy pkgconfig
         let pkgconfigURL = url.appendingPathComponent("lib").appendingPathComponent("pkgconfig")
-        if FileManager.default.fileExists(atPath: pkgconfigURL.path) {
+        if !isPackageSpecific && FileManager.default.fileExists(atPath: pkgconfigURL.path) {
             let libRoot = toURL.appendingPathComponent("lib")
             let pkgconfigRoot = libRoot.appendingPathComponent("pkgconfig")
             try FileManager.default.createDirectory(atPath: pkgconfigRoot.path, withIntermediateDirectories: true, attributes: nil)
@@ -192,7 +192,7 @@ class Builder {
         }
 
         if isPackageSpecific, let modulemap = self.package.modulemap {
-            try Command.cp(from: packageRoot.appendingPathComponent(modulemap), to: buildRoot.appendingPathComponent("include"))
+            try Command.cp(from: packageRoot.appendingPathComponent(modulemap), to: toURL.appendingPathComponent("include"))
         }
     }
 
