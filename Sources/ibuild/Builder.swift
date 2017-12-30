@@ -343,10 +343,19 @@ class XcodeBuilder: Builder {
 
     override func configure(architecture: String, inURL url: URL, buildOutputURL: URL) throws {
 
+        let environment = ProcessInfo.processInfo.environment
+
+        let deploymentTarget: String
+        if let deploymentTargetName = environment["DEPLOYMENT_TARGET_SETTING_NAME"], let value = environment[deploymentTargetName] {
+            deploymentTarget = "\(deploymentTargetName)=\(value)"
+        } else {
+            deploymentTarget = "IPHONEOS_DEPLOYMENT_TARGET=9.0"
+        }
         var args = [
             "build",
             "-sdk", self.sysroot.path,
             "-arch", architecture,
+            deploymentTarget,
             "OBJROOT=\(buildOutputURL.path)",
             "SYMROOT=\(buildOutputURL.path)"
         ]
