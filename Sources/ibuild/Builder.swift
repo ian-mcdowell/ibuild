@@ -135,8 +135,6 @@ class Builder {
         }
 
         // LIPO to create fat binary for each library
-        let libRoot = buildRoot.appendingPathComponent("lib")
-        try FileManager.default.createDirectory(atPath: libRoot.path, withIntermediateDirectories: true, attributes: nil)
         for libraryName in libraryOutputs {
             let archMap = architectures.map { arch in
                 return (arch, self.path(ofLibrary: libraryName, inBuildRoot: archOutputs[arch]!))
@@ -159,6 +157,8 @@ class Builder {
     fileprivate func install(fromURL url: URL, toURL: URL) throws {}
 
     fileprivate func lipo(from architectureMap: [(architecture: String, url: URL)], toURL: URL) throws {
+        try FileManager.default.createDirectory(atPath: toURL.deletingLastPathComponent().path, withIntermediateDirectories: true, attributes: nil)
+
         print("Merging libraries \(architectureMap) to fat library at \(toURL)")
         var args = ["-create", "-output", toURL.path]
         for (arch, url) in architectureMap {
