@@ -36,7 +36,7 @@ do {
     }
 
     switch action {
-    case "build", "archive": 
+    case "build", "archive", "install", "test": 
 
         // Load the package in that root
         let package = try Package.inProject(fileURL: packageRoot)
