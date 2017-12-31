@@ -20,8 +20,8 @@ do {
     let filesRoot = packageRoot.appendingPathComponent(".ibuild")
     let sourceRoot = filesRoot.appendingPathComponent("checkout")
     let buildRoot: URL
-    if let targetBuildDir = environment["TARGET_BUILD_DIR"] {
-        buildRoot = URL(fileURLWithPath: targetBuildDir).appendingPathComponent("ibuild")
+    if let configBuildDir = environment["CONFIGURATION_BUILD_DIR"] {
+        buildRoot = URL(fileURLWithPath: configBuildDir).appendingPathComponent("ibuild")
     } else {
         buildRoot = filesRoot.appendingPathComponent("build")
     }

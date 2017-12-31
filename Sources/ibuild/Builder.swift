@@ -40,7 +40,7 @@ class Builder {
         self.buildRoot = buildRoot
 
         let environment = ProcessInfo.processInfo.environment
-        if let tmpDir = environment["TARGET_TEMP_DIR"] {
+        if let tmpDir = environment["CONFIGURATION_TEMP_DIR"] {
             self.buildProducts = URL(fileURLWithPath: tmpDir).appendingPathComponent(sourceRoot.lastPathComponent)
         } else {
             self.buildProducts = buildRoot.appendingPathComponent("products").appendingPathComponent(sourceRoot.lastPathComponent)
