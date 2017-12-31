@@ -372,7 +372,7 @@ class XcodeBuilder: Builder {
             deploymentTarget = "IPHONEOS_DEPLOYMENT_TARGET=9.0"
         }
         var args = [
-            "build",
+            "install",
             "-sdk", self.sysroot.path,
             "-arch", architecture,
             deploymentTarget,
