@@ -377,7 +377,8 @@ class XcodeBuilder: Builder {
             "-arch", architecture,
             deploymentTarget,
             "OBJROOT=\(buildOutputURL.path)",
-            "SYMROOT=\(buildOutputURL.path)"
+            "SYMROOT=\(buildOutputURL.path)",
+            "DSTROOT=\(buildOutputURL.path)"
         ]
         if let packageArgs = self.package.buildArgs {
             args = args + packageArgs
