@@ -36,7 +36,7 @@ do {
     }
 
     switch action {
-    case "build": 
+    case "build", "archive": 
 
         // Load the package in that root
         let package = try Package.inProject(fileURL: packageRoot)
@@ -79,7 +79,7 @@ do {
         try FileManager.default.removeItem(at: buildRoot)
         print("Successfully cleaned project.")
     default:
-        print("Invalid action: \(action). Options are: \"build\", \"clean\".")
+        print("Invalid action: \(action). Options are: \"build\", \"archive\", \"clean\".")
     }
 
 } catch {
