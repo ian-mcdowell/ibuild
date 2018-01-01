@@ -394,7 +394,8 @@ class XcodeBuilder: Builder {
             deploymentTarget,
             "OBJROOT=\(buildOutputURL.path)",
             "SYMROOT=\(buildOutputURL.path)",
-            "DSTROOT=\(buildOutputURL.path)"
+            "DSTROOT=\(buildOutputURL.path)",
+            "IBUILD_CURRENT_PACKAGE_ROOT=\(packageRoot.path)"
         ]
         if let packageArgs = self.buildProperties.buildArgs {
             args = args + packageArgs

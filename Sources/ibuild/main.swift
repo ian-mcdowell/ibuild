@@ -18,6 +18,12 @@ do {
     guard let packageRootEnv = environment["PACKAGE_ROOT"] else {
         throw IBuildError.packageRootNotFound
     }
+    
+    if environment["IBUILD_CURRENT_PACKAGE_ROOT"] == packageRootEnv {
+        print("ibuild is already building this package. Exiting.")
+        exit(0)
+    }
+
     let packageRoot = URL(fileURLWithPath: packageRootEnv)
     let filesRoot = packageRoot.appendingPathComponent(".ibuild")
     let sourceRoot = filesRoot.appendingPathComponent("checkout")
