@@ -2,10 +2,12 @@ import Foundation
 
 enum DependencyError: LocalizedError {
     case invalidURL(String)
+    case packageNotFound(Package.Location)
 
     var errorDescription: String? {
         switch self {
             case .invalidURL(let url): return "Invalid URL found while parsing dependency tree: \(url)"
+            case .packageNotFound(let location): return "build.plist not found at location: \(location)"
         }
     }
 }
@@ -13,41 +15,61 @@ enum DependencyError: LocalizedError {
 struct DependencyDownloader {
 
     /// Download the dependencies of the given package. These dependencies should all be git repositories with build.plists in them.
-    static func downloadDependencies(ofPackage package: Package, intoSourceRoot sourceRoot: URL, projectSourceMap: ProjectSourceMap) throws -> [Package] {
-        var packages: [Package] = []
-        for dependency in package.dependencies {
-            let downloadLocation = try downloadLibrary(dependency, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
-
-            let downloadedPackage = try Package.inProject(fileURL: downloadLocation)
-            packages.append(downloadedPackage)
-
+    static func downloadDependencies(ofPackage package: Package, intoSourceRoot sourceRoot: URL, projectSourceMap: ProjectSourceMap) throws -> [(package: Package, location: URL)] {
+        var packages: [(package: Package, location: URL)] = []
+        for dependency in package.dependencies ?? [] {
+            let result = try downloadLibrary(at: dependency, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+            guard let downloadedPackage = result.package else {
+                throw DependencyError.packageNotFound(dependency)
+            }
+            packages.append((downloadedPackage, result.location))
             packages.append(contentsOf: try downloadDependencies(ofPackage: downloadedPackage, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap))
         }
-        if let library = package.library {
-            try downloadLibrary(library, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+        if let location = package.build?.location {
+            try downloadLibrary(at: location, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
         }
 
         return packages
     }
 
     @discardableResult
-    static func downloadLibrary(_ library: Package.Library, intoSourceRoot sourceRoot: URL, projectSourceMap: ProjectSourceMap) throws -> URL {
-        guard let url = URL(string: library.url) else {
-            throw DependencyError.invalidURL(library.url)
-        }
+    static func downloadLibrary(at location: Package.Location, intoSourceRoot sourceRoot: URL, projectSourceMap: ProjectSourceMap) throws -> (package: Package?, location: URL) {
+
+        let package: Package?
+        let remoteLocation = try location.remoteLocation()
         let downloadLocation: URL
-        if let location = projectSourceMap.locations[library.url] {
-            print("Dependency: \(library.url) already downloaded.")
-            downloadLocation = URL(fileURLWithPath: location)
+
+        switch location {
+        case .github(_, let branch), .git(_, let branch):
+            let result = try self.downloadGitPackage(at: remoteLocation, branch: branch, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+            package = result.package
+            downloadLocation = result.location
+        case .local(_):
+            package = try Package.inProject(fileURL: remoteLocation)
+            downloadLocation = remoteLocation
+        }
+
+        // Save where we downloaded the library
+        projectSourceMap.set(location: downloadLocation, ofProjectAt: remoteLocation)
+
+        return (package, downloadLocation)
+    }
+
+    private static func downloadGitPackage(at projectURL: URL, branch: String, intoSourceRoot sourceRoot: URL, projectSourceMap: ProjectSourceMap) throws -> (package: Package?, location: URL) {
+        let downloadLocation: URL
+        if let onDiskLocation = projectSourceMap.location(ofProjectAt: projectURL) {
+            downloadLocation = onDiskLocation
+            print("Github Dependency: \(projectURL.absoluteString) already downloaded.")
             try gitPull(repository: downloadLocation)
         } else {
             let uuid = UUID().uuidString
             downloadLocation = sourceRoot.appendingPathComponent(uuid)
-            try gitClone(url: url, destination: downloadLocation)
-            try gitCheckout(branch: library.branch, repository: downloadLocation)
-            projectSourceMap.locations[library.url] = downloadLocation.path
+            try gitClone(url: projectURL, destination: downloadLocation)
         }
-        return downloadLocation
+        try gitCheckout(branch: branch, repository: downloadLocation)
+
+        let package = try Package.inProject(fileURL: downloadLocation)
+        return (package, downloadLocation)
     }
 
     private static func gitClone(url: URL, destination: URL) throws {

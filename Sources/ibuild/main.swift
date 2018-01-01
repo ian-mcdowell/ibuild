@@ -2,10 +2,12 @@ import Foundation
 
 enum IBuildError: LocalizedError {
     case packageRootNotFound
+    case packageNotFoundInPackageRoot
 
     var errorDescription: String? {
         switch self {
             case .packageRootNotFound: return "Package root not found."
+            case .packageNotFoundInPackageRoot: return "A build.plist was not found in the root of this package."
         }
     }
 }
@@ -38,14 +40,16 @@ do {
     switch action {
     case "build", "archive", "install", "test": 
 
-        // Load the package in that root
-        let package = try Package.inProject(fileURL: packageRoot)
+        // Load the build.plist of the current directory
+        guard let package = try Package.inProject(fileURL: packageRoot) else {
+            throw IBuildError.packageNotFoundInPackageRoot
+        }
 
         // Get the project source map for this package
         let projectSourceMap = ProjectSourceMap.inRoot(filesRoot)
 
-        // Save the root package into the map
-        projectSourceMap.locations[package.url] = packageRoot.path
+        // Save the root package's location into the map
+        projectSourceMap.set(location: packageRoot, ofProjectAt: packageRoot)
 
         // Get its dependencies
         let dependencies = try DependencyDownloader.downloadDependencies(ofPackage: package, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
@@ -56,23 +60,23 @@ do {
         if !sorted.isEmpty {
             print("Building dependencies:")
             for dependency in sorted {
-                print("\(dependency.name) - \(dependency.url)")
+                print(dependency.package.name)
             }
             for dependency in sorted {
-                if let builder = try Builder.forPackage(dependency, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
+                if let builder = try Builder.forPackage(dependency.package, packageRoot: dependency.location, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
                     try builder.build()
                 }
             }
         }
 
         // Download library
-        if let library = package.library {
-            try DependencyDownloader.downloadLibrary(library, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
-        }
+        if let buildProperties = package.build {
+            try DependencyDownloader.downloadLibrary(at: buildProperties.location, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
 
-        // Build library
-        if let builder = try Builder.forPackage(package, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
-            try builder.build()
+            // Build library
+            if let builder = try Builder.forPackage(package, packageRoot: packageRoot, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
+                try builder.build()
+            }
         }
 
     case "clean":

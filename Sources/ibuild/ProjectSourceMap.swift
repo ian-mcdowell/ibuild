@@ -2,11 +2,11 @@ import Foundation
 
 class ProjectSourceMap: Codable {
     private var plistURL: URL! = nil
-    var locations: [String: String] {
+
+    // Maps project names to file URLs
+    private var locations: [String: String] {
         didSet {
-            if let data = try? PropertyListEncoder().encode(self) {
-                try? data.write(to: plistURL)
-            }
+            self.save()
         }
     }
 
@@ -23,6 +23,17 @@ class ProjectSourceMap: Codable {
         }
     }
 
+    public func location(ofProjectAt projectURL: URL) -> URL? {
+        if let value = self.locations[projectURL.absoluteString] {
+            return URL(fileURLWithPath: value)
+        }
+        return nil
+    }
+
+    public func set(location downloadLocation: URL, ofProjectAt location: URL) {
+        self.locations[location.absoluteString] = downloadLocation.path
+    }
+
     private enum CodingKeys: CodingKey {
         case locations
     }
@@ -30,5 +41,11 @@ class ProjectSourceMap: Codable {
     private init(plistURL: URL) {
         self.plistURL = plistURL
         self.locations = [:]
+    }
+
+    private func save() {
+        if let data = try? PropertyListEncoder().encode(self) {
+            try? data.write(to: plistURL)
+        }
     }
 }
