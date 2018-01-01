@@ -70,7 +70,7 @@ struct Package: Decodable {
 
     struct BuildProperties: Decodable {
         // Library the package will build
-        let location: Location
+        let location: Location?
 
         // Build system to use
         let buildSystem: BuildSystem

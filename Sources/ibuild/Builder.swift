@@ -16,8 +16,14 @@ class Builder {
             return nil
         }
 
-        guard let sourceRoot = projectSourceMap.location(ofProjectAt: try buildProperties.location.remoteLocation()) else {
-            throw BuilderError.packageNotFound(package.name)
+        let sourceRoot: URL
+        if let location = buildProperties.location {
+            guard let locationOnDisk = projectSourceMap.location(ofProjectAt: try location.remoteLocation()) else {
+                throw BuilderError.packageNotFound(package.name)
+            }
+            sourceRoot = locationOnDisk
+        } else {
+            sourceRoot = packageRoot
         }
 
         let builderClass: Builder.Type
