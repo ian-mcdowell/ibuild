@@ -446,7 +446,10 @@ class XcodeBuilder: Builder {
             try super.lipo(from: binaryArchitectureMap, toURL: binaryToURL)
 
             for arch in architectureMap {
-                try Command.cp(from: arch.url.appendingPathComponent("Modules").appendingPathComponent("\(binaryName).swiftmodule"), to: toURL.appendingPathComponent("Modules"))
+                let swiftmodule = arch.url.appendingPathComponent("Modules").appendingPathComponent("\(binaryName).swiftmodule")
+                if FileManager.default.fileExists(atPath: swiftmodule.path) {
+                    try Command.cp(from: swiftmodule, to: toURL.appendingPathComponent("Modules"))
+                }
             }
         } else {
             // Default behavior
