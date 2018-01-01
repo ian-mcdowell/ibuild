@@ -395,6 +395,7 @@ class XcodeBuilder: Builder {
             "OBJROOT=\(buildOutputURL.path)",
             "SYMROOT=\(buildOutputURL.path)",
             "DSTROOT=\(buildOutputURL.path)",
+            "ONLY_ACTIVE_ARCH=YES",
             "IBUILD_CURRENT_BUILD_ROOT=\(self.buildRoot.path)",
             "IBUILD_CURRENT_PACKAGE_ROOT=\(packageRoot.path)"
         ]
@@ -412,13 +413,10 @@ class XcodeBuilder: Builder {
     }
 
     override func install(fromURL url: URL, toURL: URL) throws {
-        let libURL = toURL.appendingPathComponent("lib")
         let xcodeOutputURL = toURL.appendingPathComponent("Release-\(self.platformName)")
 
-        try FileManager.default.createDirectory(atPath: libURL.path, withIntermediateDirectories: true, attributes: nil)
-
         for libraryName in self.buildProperties.outputs ?? [] {
-            try Command.cp(from: xcodeOutputURL.appendingPathComponent(libraryName), to: libURL)
+            try Command.cp(from: xcodeOutputURL.appendingPathComponent(libraryName), to: toURL)
         }
 
         // Copy swiftmodule(s)
@@ -439,7 +437,7 @@ class XcodeBuilder: Builder {
             // - Copy swiftmodules from FrameworkName.framework/Modules/FrameworkName.swiftmodule
             
             if let firstArchitecture = architectureMap.first?.url {
-                try Command.cp(from: firstArchitecture, to: toURL)
+                try Command.cp(from: firstArchitecture, to: toURL.deletingLastPathComponent())
             }
 
             let binaryName = toURL.deletingPathExtension().lastPathComponent

@@ -81,7 +81,7 @@ struct Command {
     static func cp(from: URL, to: URL) throws {
         try Command.trySpawn(
             "/bin/cp",
-            ["-R", from.path, to.path]
+            ["-R", (from.path as NSString).resolvingSymlinksInPath, (to.path as NSString).resolvingSymlinksInPath]
         )
     }
 
