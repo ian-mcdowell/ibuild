@@ -221,8 +221,8 @@ class Builder {
         }
 
         if isPackageSpecific, let auxiliary = self.buildProperties.auxiliaryFiles {
-            for path in auxiliary {
-                try Command.cp(from: packageRoot.appendingPathComponent(path), to: toURL)
+            for (sourcePath, destinationPath) in auxiliary {
+                try Command.cp(from: packageRoot.appendingPathComponent(path), to: toURL.appendingPathComponent(destinationPath))
             }
         }
     }

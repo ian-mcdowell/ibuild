@@ -88,7 +88,7 @@ struct Package: Decodable {
         let outputs: [String]?
 
         // Paths of source files in this package to also copy to final output directory.
-        let auxiliaryFiles: [String]?
+        let auxiliaryFiles: [String: String]?
 
         enum BuildSystem: String, Decodable {
             case cmake
