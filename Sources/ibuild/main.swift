@@ -75,15 +75,17 @@ do {
             }
         }
 
-        // Download library
-        if let buildProperties = package.build {
-            if let location = buildProperties.location {
-                try DependencyDownloader.downloadLibrary(at: location, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
-            }
+        if environment["IBUILD_DEPENDENCIES_ONLY"] != "YES" {
+            // Download library
+            if let buildProperties = package.build {
+                if let location = buildProperties.location {
+                    try DependencyDownloader.downloadLibrary(at: location, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+                }
 
-            // Build library
-            if let builder = try Builder.forPackage(package, packageRoot: packageRoot, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
-                try builder.build()
+                // Build library
+                if let builder = try Builder.forPackage(package, packageRoot: packageRoot, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
+                    try builder.build()
+                }
             }
         }
 
