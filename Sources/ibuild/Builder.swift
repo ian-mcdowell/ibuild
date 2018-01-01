@@ -395,7 +395,6 @@ class XcodeBuilder: Builder {
             "OBJROOT=\(buildOutputURL.path)",
             "SYMROOT=\(buildOutputURL.path)",
             "DSTROOT=\(buildOutputURL.path)",
-            "OTHER_LDFLAGS=-L\(self.buildRoot.path)/lib",
             "IBUILD_CURRENT_BUILD_ROOT=\(self.buildRoot.path)",
             "IBUILD_CURRENT_PACKAGE_ROOT=\(packageRoot.path)"
         ]
