@@ -88,6 +88,13 @@ do {
                 }
             }
         }
+        
+        // Generate licenses plist
+        let allPackages = dependencies.map { $0.package } + [package]
+        let location = buildRoot.appendingPathComponent("Licenses.plist")
+        
+        print("Generating licenses plist for packages at: \(location.path)")
+        try LicensePlistGenerator.writePlist(forPackages: allPackages, toFile: location, projectSourceMap: projectSourceMap)
 
     case "clean":
         try FileManager.default.removeItem(at: buildRoot)
