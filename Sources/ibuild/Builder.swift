@@ -330,16 +330,16 @@ class CMakeBuilder: Builder {
             "-DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON"
         ]
         if let packageArgs = self.buildProperties.buildArgs {
-            args = args + packageArgs
+            args += packageArgs
         }
         if let packageArchSpecificArgs = self.buildProperties.buildArchSpecificArgs?[self.platformName]?[architecture] {
-            args = args + packageArchSpecificArgs
+            args += packageArchSpecificArgs
         }
 
         args = applyEnvToArgs(args)
 
         // Repository url
-        args = args + [self.sourceRoot.path]
+        args += [self.sourceRoot.path]
 
         print("Running CMake with arguments: \(args)")
 
@@ -400,10 +400,10 @@ class XcodeBuilder: Builder {
             "IBUILD_CURRENT_PACKAGE_ROOT=\(packageRoot.path)"
         ]
         if let packageArgs = self.buildProperties.buildArgs {
-            args = args + packageArgs
+            args += packageArgs
         }
         if let packageArchSpecificArgs = self.buildProperties.buildArchSpecificArgs?[self.platformName]?[architecture] {
-            args = args + packageArchSpecificArgs
+            args += packageArchSpecificArgs
         }
         try Command.trySpawn(
             "/usr/bin/xcodebuild",
