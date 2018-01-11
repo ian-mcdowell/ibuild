@@ -97,7 +97,9 @@ do {
         try LicensePlistGenerator.writePlist(forPackages: allPackages, toFile: location, projectSourceMap: projectSourceMap)
 
     case "clean":
-        try FileManager.default.removeItem(at: buildRoot)
+        if FileManager.default.fileExists(atPath: buildRoot.path) {
+            try FileManager.default.removeItem(at: buildRoot)
+        }
         print("Successfully cleaned project.")
     default:
         print("Invalid action: \(action). Options are: \"build\", \"archive\", \"clean\".")
