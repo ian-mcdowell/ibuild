@@ -13,25 +13,47 @@ fileprivate extension String {
 
 struct LicensePlistGenerator {
     
+    private typealias LicensePlistType = [String: String]
+    
     static func writePlist(forPackages packages: [Package], toFile: URL, projectSourceMap: ProjectSourceMap) throws {
-        var licenses = [[String: String]]()
+        
+        var licenses: LicensePlistType
+        do {
+            let data = try Data(contentsOf: toFile)
+            let decoder = PropertyListDecoder()
+            licenses = try decoder.decode(LicensePlistType.self, from: data)
+        } catch {
+            licenses = [:]
+        }
         
         for package in packages {
             
             guard
                 let location = package.build?.location,
-                let locationOnDisk = projectSourceMap.location(ofProjectAt: try location.remoteLocation()),
-                let licensePath = locateLicenseInFolder(folder: locationOnDisk),
-                let licence = try? String(contentsOf: licensePath, encoding: .utf8)
+                let remoteLocation = try? location.remoteLocation(),
+                let locationOnDisk = projectSourceMap.location(ofProjectAt: remoteLocation)
             else {
+                print("Unable to find source location of package: \(package.name).")
                 continue
             }
             
-            licenses.append(["title": package.name, "text": licence])
+            guard
+                let licensePath = locateLicenseInFolder(folder: locationOnDisk),
+                let license = try? String(contentsOf: licensePath, encoding: .utf8)
+            else {
+                print("Unable to find license for package: \(package.name) in \(locationOnDisk).")
+                continue
+            }
+            
+            print("Adding \(package.name)'s license to licenses plist")
+            
+            licenses[package.name] = license
         }
 
         // Generate plist from result array
-        let plist = try PropertyListSerialization.data(fromPropertyList: licenses, format: .xml, options: 0)
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .xml
+        let plist = try encoder.encode(licenses)
         
         // Write plist to disk
         try plist.write(to: toFile, options: .atomic)
