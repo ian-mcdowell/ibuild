@@ -30,7 +30,8 @@ class Builder {
         switch buildProperties.buildSystem {
             case .cmake: builderClass = CMakeBuilder.self 
             case .make: builderClass = MakeBuilder.self 
-            case .xcode: builderClass = XcodeBuilder.self 
+            case .xcode: builderClass = XcodeBuilder.self
+            case .custom: builderClass = CustomBuilder.self
         }
         return try builderClass.init(buildProperties: buildProperties, packageName: package.name, packageRoot: packageRoot, sourceRoot: sourceRoot, buildRoot: buildRoot)
     }
@@ -85,9 +86,12 @@ class Builder {
 
         self.env = [
             "CC": try Command.tryExec("/usr/bin/xcrun", ["-find", "clang"]),
+            "CPP": try Command.tryExec("/usr/bin/xcrun", ["-find", "clang"]),
             "CXX": try Command.tryExec("/usr/bin/xcrun", ["-find", "clang++"]),
+            "LD": try Command.tryExec("/usr/bin/xcrun", ["-find", "ld"]),
             "AR": try Command.tryExec("/usr/bin/xcrun", ["-find", "ar"]),
             "RANLIB": try Command.tryExec("/usr/bin/xcrun", ["-find", "ranlib"]),
+            "LIBTOOL": try Command.tryExec("/usr/bin/xcrun", ["-find", "libtool"]),
             "PKGROOT": self.packageRoot.path,
             "SRCROOT": self.sourceRoot.path,
             "SDKROOT": self.sysroot.path,
@@ -227,19 +231,20 @@ class Builder {
         }
     }
 
-    fileprivate func applyEnvToArgs(_ args: [String]) -> [String] {
+    fileprivate func applyEnvToArgs(_ args: [String], _ additionalEnv: [String: String] = [:]) -> [String] {
+        let env = self.env.merging(additionalEnv) { (_, additional) in additional }
+
         // Replace $#SOMETHING# with env[SOMETHING]
         let regex = try! NSRegularExpression(pattern: "\\$\\#([A-Z]*?)\\#", options: [])
         return args.map { arg in 
             var arg = arg
-            for result in regex.matches(in: arg, range: NSMakeRange(0, arg.utf16.count)) {
+            while let result = regex.matches(in: arg, range: NSMakeRange(0, arg.utf16.count)).first {
                 let range = result.range(at: 1)
                 let key = (arg as NSString).substring(with: range)
 
-                if let value = self.env[key] {
-                    print("Replacing \(key) with \(value)")
-                    arg = (arg as NSString).replacingCharacters(in: result.range(at: 0), with: self.env[key] ?? "")
-                }
+                let value = env[key] ?? ""
+                print("Replacing \(key) with \(value)")
+                arg = (arg as NSString).replacingCharacters(in: result.range(at: 0), with: value)
             }
             return arg
         }
@@ -455,5 +460,111 @@ class XcodeBuilder: Builder {
             // Default behavior
             try super.lipo(from: architectureMap, toURL: toURL)
         }
+    }
+}
+
+class CustomBuilder: Builder {
+
+    override func configure(architecture: String, inURL url: URL, buildOutputURL: URL) throws {
+        // ENV: prefix, chost, srcroot
+        // Applies to: configure/make/install/env, buildArgs
+
+        guard let configureProperty = buildProperties.customProperties?.configure else { return }
+
+        var (configure, args) = extractArgs(forCommand: configureProperty)
+
+        var env = [
+            "ARCH": architecture,
+            "PREFIX": buildOutputURL.path
+        ]
+        env = self.customEnv(env)
+
+        configure = launchPath(forCommand: applyEnv(configure, env))
+
+        if let packageArgs = self.buildProperties.buildArgs {
+            args = packageArgs + args
+        }
+        if let packageArchSpecificArgs = self.buildProperties.buildArchSpecificArgs?[self.platformName]?[architecture] {
+            args = packageArchSpecificArgs + args
+        }
+        args = applyEnv(args, env)
+
+        print("Running configure script: \(configure) \(args)")
+    
+        try Command.trySpawn(
+            configure,
+            currentDirectory: self.sourceRoot.path,
+            env: env,
+            args
+        )
+    }
+
+    override func make(fromURL url: URL) throws {
+        guard let makeProperty = buildProperties.customProperties?.make else { return }
+
+        var env: [String: String] = [:]
+        env = self.customEnv(env)
+
+        var (make, args) = extractArgs(forCommand: makeProperty)
+        make = launchPath(forCommand: applyEnv(make, env))
+        args = applyEnv(args, env)
+
+        try Command.trySpawn(
+            make,
+            currentDirectory: self.sourceRoot.path,
+            env: env,
+            args
+        )
+    }
+
+    override func install(fromURL url: URL, toURL: URL) throws {
+        guard let installProperty = buildProperties.customProperties?.install else { return }
+
+        var env = [
+            "PREFIX": toURL.path
+        ]
+        env = self.customEnv(env)
+
+        var (install, args) = extractArgs(forCommand: installProperty)
+        install = launchPath(forCommand: applyEnv(install, env))
+        args = applyEnv(args, env)
+
+        try Command.trySpawn(
+            install,
+            currentDirectory: self.sourceRoot.path,
+            env: env,
+            args
+        )
+    }
+
+    private func extractArgs(forCommand command: String) -> (command: String, args: [String]) {
+        var components = command.components(separatedBy: .whitespaces)
+        let command = components.removeFirst()
+        return (command, components)
+    }
+
+    private func launchPath(forCommand command: String) -> String {
+        if command.hasPrefix("/") { return command }
+        return self.sourceRoot.appendingPathComponent(command).path
+    }
+
+    private func applyEnv(_ value: String, _ env: [String: String]) -> String {
+        return applyEnv([value], env).first!
+    }
+
+    private func applyEnv(_ values: [String], _ env: [String: String]) -> [String] {
+        return self.applyEnvToArgs(values, env)
+    }
+
+    private func customEnv(_ env: [String: String]) -> [String: String] {
+        // Apply env to the provided env if exists
+        let customEnvironment: [String: String]
+        if var customEnv = buildProperties.customProperties?.env {
+            customEnv = customEnv.mapValues { self.applyEnvToArgs([$0], env).first! }
+            customEnvironment = customEnv.merging(env) { (keep, _) in keep }
+        } else {
+            customEnvironment = env
+        }
+        return self.env.merging(customEnvironment) { (_, keep) in keep }
     }
 }

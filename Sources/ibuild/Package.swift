@@ -90,11 +90,26 @@ struct Package: Decodable {
         // Paths of source files in this package to also copy to final output directory.
         let auxiliaryFiles: [String: String]?
 
+        // If the build system is custom, these properties will determine which commands are run.
+        let customProperties: CustomBuildSystemProperties?
+
         enum BuildSystem: String, Decodable {
             case cmake
             case make
             case xcode
+            case custom
         }
+    }
+
+    struct CustomBuildSystemProperties: Decodable {
+        // Command to configure sources
+        let configure: String
+        // Command to make sources
+        let make: String
+        // Command to install built libraries
+        let install: String
+        // Additional environment variables to pass to commands
+        let env: [String: String]?
     }
 
     // Name of the package

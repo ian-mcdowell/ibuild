@@ -14,7 +14,7 @@ enum DependencyError: LocalizedError {
 
 struct DependencyDownloader {
 
-    /// Download the dependencies of the given package. These dependencies should all be git repositories with build.plists in them.
+    /// Download the dependencies of the given package. These dependencies should all be git repositories / directories with build.plists in them.
     static func downloadDependencies(ofPackage package: Package, intoSourceRoot sourceRoot: URL, projectSourceMap: ProjectSourceMap) throws -> [(package: Package, location: URL)] {
         var packages: [(package: Package, location: URL)] = []
         for dependency in package.dependencies ?? [] {
