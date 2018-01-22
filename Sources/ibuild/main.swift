@@ -58,15 +58,16 @@ do {
         projectSourceMap.set(location: packageRoot, ofProjectAt: packageRoot)
 
         // Get its dependencies
+        print("\n > Fetching dependencies")
         let dependencies = try DependencyDownloader.downloadDependencies(ofPackage: package, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
 
         // Sort dependencies into build order
         let sorted = DependencySorter.buildOrder(forBuilding: dependencies)
 
         if !sorted.isEmpty {
-            print("Building dependencies:")
+            print("\n > Building dependencies:")
             for dependency in sorted {
-                print(dependency.package.name)
+                print("\t\(dependency.package.name)")
             }
             for dependency in sorted {
                 if let builder = try Builder.forPackage(dependency.package, packageRoot: dependency.location, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
@@ -78,10 +79,12 @@ do {
         if environment["IBUILD_DEPENDENCIES_ONLY"] != "YES" {
             // Download library
             if let buildProperties = package.build {
+                print("\n > Fetching library")
                 if let location = buildProperties.location {
                     try DependencyDownloader.downloadLibrary(at: location, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
                 }
 
+                print("\n > Building library")
                 // Build library
                 if let builder = try Builder.forPackage(package, packageRoot: packageRoot, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
                     try builder.build()
@@ -93,16 +96,16 @@ do {
         let allPackages = sorted.map { $0.package } + [package]
         let location = buildRoot.appendingPathComponent("Licenses.plist")
         
-        print("Generating licenses plist for \(allPackages.count) packages at: \(location.path)")
+        print("\n > Generating licenses plist for packages. It will be located at: \(location.path)")
         try LicensePlistGenerator.writePlist(forPackages: allPackages, toFile: location, projectSourceMap: projectSourceMap)
 
-        print("ibuild completed successfully.")
+        print("\n > ibuild completed successfully.")
         print("Built packages: \(allPackages.count)")
     case "clean":
         if FileManager.default.fileExists(atPath: buildRoot.path) {
             try FileManager.default.removeItem(at: buildRoot)
         }
-        print("Successfully cleaned project.")
+        print("\n > Successfully cleaned project.")
     default:
         print("Invalid action: \(action). Options are: \"build\", \"archive\", \"clean\".")
     }

@@ -112,7 +112,7 @@ class Builder {
 
         var archOutputs: [String: URL] = [:]
         for arch in architectures {
-            print("Configuring for architecture: \(arch)")
+            print("Configuring \(packageName) for architecture: \(arch)")
 
             let outputForArch = buildProducts.appendingPathComponent(arch)
 

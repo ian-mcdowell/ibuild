@@ -65,9 +65,21 @@ struct Command {
             task.environment = mergeEnv(env)
         }
 
+        let output = Pipe()
+        task.standardOutput = output
+        task.standardError = output
+
         task.launch()
+
+        let outdata = output.fileHandleForReading.readDataToEndOfFile()
+        let outputStr = String(data: outdata, encoding: .utf8)!
+
         task.waitUntilExit()
 
+        if task.terminationStatus != 0 {
+            print("Command failed: \(cmd)")
+            print(outputStr)
+        }
         return task.terminationStatus
     }
 
