@@ -88,9 +88,20 @@ do {
                 }
             }
         }
+        
+        // Generate licenses plist
+        let allPackages = sorted.map { $0.package } + [package]
+        let location = buildRoot.appendingPathComponent("Licenses.plist")
+        
+        print("Generating licenses plist for \(allPackages.count) packages at: \(location.path)")
+        try LicensePlistGenerator.writePlist(forPackages: allPackages, toFile: location, projectSourceMap: projectSourceMap)
 
+        print("ibuild completed successfully.")
+        print("Built packages: \(allPackages.count)")
     case "clean":
-        try FileManager.default.removeItem(at: buildRoot)
+        if FileManager.default.fileExists(atPath: buildRoot.path) {
+            try FileManager.default.removeItem(at: buildRoot)
+        }
         print("Successfully cleaned project.")
     default:
         print("Invalid action: \(action). Options are: \"build\", \"archive\", \"clean\".")
