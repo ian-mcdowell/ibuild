@@ -64,8 +64,8 @@ struct LicensePlistGenerator {
     private static func locateLicenseInFolder(folder: URL) -> URL? {
         let filemanager = FileManager.default
         
-        if let subpaths = try? filemanager.subpathsOfDirectory(atPath: folder.path),
-            let license = subpaths.first(where: { $0.endsWith(str: "LICENSE") || $0.endsWith(str: "LICENSE.txt") }) {
+        if let subpaths = try? filemanager.contentsOfDirectory(atPath: folder.path),
+            let license = subpaths.first(where: { $0 == "LICENSE" || $0 == "LICENSE.txt" }) {
             return folder.appendingPathComponent(license)
         }
         return nil
