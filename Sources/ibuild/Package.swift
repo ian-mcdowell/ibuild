@@ -58,9 +58,7 @@ struct Package: Decodable {
                 if path.hasPrefix("/") {
                     url = URL(fileURLWithPath: path)
                 } else {
-                    guard let packageRoot = ProcessInfo.processInfo.environment["PACKAGE_ROOT"] else {
-                        throw IBuildError.packageRootNotFound
-                    }
+                    let packageRoot = FileManager.default.currentDirectoryPath
                     url = URL(fileURLWithPath: "\(packageRoot)/\(path)")
                 }
                 return url

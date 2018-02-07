@@ -1,12 +1,10 @@
 import Foundation
 
 enum IBuildError: LocalizedError {
-    case packageRootNotFound
     case packageNotFoundInPackageRoot
 
     var errorDescription: String? {
         switch self {
-            case .packageRootNotFound: return "Package root not found."
             case .packageNotFoundInPackageRoot: return "A build.plist was not found in the root of this package."
         }
     }
@@ -15,16 +13,14 @@ enum IBuildError: LocalizedError {
 do {
     let environment = ProcessInfo.processInfo.environment
     // Get package root (where the current package to build is)
-    guard let packageRootEnv = environment["PACKAGE_ROOT"] else {
-        throw IBuildError.packageRootNotFound
-    }
+    let packageRootPath = FileManager.default.currentDirectoryPath
     
-    if environment["IBUILD_CURRENT_PACKAGE_ROOT"] == packageRootEnv {
+    if environment["IBUILD_CURRENT_PACKAGE_ROOT"] == packageRootPath {
         print("ibuild is already building this package. Exiting.")
         exit(0)
     }
 
-    let packageRoot = URL(fileURLWithPath: packageRootEnv)
+    let packageRoot = URL(fileURLWithPath: packageRootPath)
     let filesRoot = packageRoot.appendingPathComponent(".ibuild")
     let sourceRoot = filesRoot.appendingPathComponent("checkout")
     let buildRoot: URL
