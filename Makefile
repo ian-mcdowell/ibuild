@@ -6,10 +6,10 @@ INSTALL_PATH = $(PREFIX)/bin/$(TOOL_NAME)
 BUILD_PATH = .build/release/$(TOOL_NAME)
 CURRENT_PATH = $(PWD)
 REPO = https://github.com/IMcD23/$(TOOL_NAME)
-RELEASE_ZIP = $(REPO)/archive/$(VERSION).zip
-SHA = $(shell curl -L -s $(RELEASE_ZIP) | shasum -a 256 | sed 's/ .*//')
+RELEASE_TAR = $(REPO)/archive/$(VERSION).tar.gz
+SHA = $(shell curl -L -s $(RELEASE_TAR) | shasum -a 256 | sed 's/ .*//')
 
-.PHONY: install build uninstall format_code update_brew release
+.PHONY: install build uninstall release
 
 install: build
 	mkdir -p $(PREFIX)/bin
