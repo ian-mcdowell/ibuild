@@ -2,6 +2,13 @@
 
 `ibuild` is a build system for iOS libraries that are built without using build systems like CMake or Make.
 
+# Installation
+To install `ibuild`, use [Homebrew](https://brew.sh)
+```
+brew install IMcD23/brew/ibuild
+```
+
+# Usage
 A typical workflow for using `ibuild` is as follows:
 1. Create a `build.plist` file in the root of your repo.
 2. Add a list of dependencies to build to the `build.plist`.
@@ -90,7 +97,7 @@ Below is the schema for a `build.plist` file. A question mark represents an opti
     }
 
     # Dependencies of this package
-    dependencies: [
+    dependencies?: [
         {
             # Type of the location.
             # Values: github / git / local
