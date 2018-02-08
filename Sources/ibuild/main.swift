@@ -55,7 +55,7 @@ do {
 
         // Get its dependencies
         print("\n > Fetching dependencies")
-        let dependencies = try DependencyDownloader.downloadDependencies(ofPackage: package, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+        let dependencies = try DependencyDownloader.downloadDependencies(ofPackage: package, intoSourceRoot: sourceRoot, packageRoot: packageRoot, projectSourceMap: projectSourceMap)
 
         // Sort dependencies into build order
         let sorted = DependencySorter.buildOrder(forBuilding: dependencies)
@@ -77,7 +77,7 @@ do {
             if let buildProperties = package.build {
                 print("\n > Fetching library")
                 if let location = buildProperties.location {
-                    try DependencyDownloader.downloadLibrary(at: location, intoSourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
+                    try DependencyDownloader.downloadLibrary(at: location, intoSourceRoot: sourceRoot, packageRoot: packageRoot, projectSourceMap: projectSourceMap)
                 }
 
                 print("\n > Building library")
@@ -89,7 +89,8 @@ do {
         }
         
         // Generate licenses plist
-        let allPackages = sorted.map { $0.package } + [package]
+        var allPackages = sorted
+        allPackages += [(package, packageRoot)]
         let location = buildRoot.appendingPathComponent("Licenses.plist")
         
         print("\n > Generating licenses plist for packages. It will be located at: \(location.path)")

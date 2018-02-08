@@ -6,7 +6,7 @@ enum PackageError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-            case .parsingError(let error): return "Error parsing package property list: \(error.localizedDescription)."
+            case .parsingError(let error): return "Error parsing package property list: \(error)."
             case .invalidURL(let url): return "Invalid URL found while parsing: \(url)"
         }
     }
@@ -17,13 +17,14 @@ struct Package: Decodable {
     enum Location: Decodable {
         case github(path: String, branch: String)
         case git(url: URL, branch: String)
+        case tar(url: URL)
         case local(path: String)
 
         private enum CodingKeys: String, CodingKey {
             case type, path, branch, url
         }
         private enum LibraryType: String, Decodable {
-            case github, git, local
+            case github, git, tar, local
         }
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -41,25 +42,30 @@ struct Package: Decodable {
                 }
                 let branch = try container.decode(String.self, forKey: .branch)
                 self = .git(url: url, branch: branch)
+            case .tar:
+                let urlStr = try container.decode(String.self, forKey: .url)
+                guard let url = URL(string: urlStr) else {
+                    throw PackageError.invalidURL(url: urlStr)
+                }
+                self = .tar(url: url)
             case .local:
                 let path = try container.decode(String.self, forKey: .path)
                 self = .local(path: path)
             }
         }
 
-        func remoteLocation() throws -> URL {
+        func remoteLocation(packageRoot: URL) throws -> URL {
             switch self {
             case .github(let path, _):
                 return URL(string: "https://github.com/\(path).git")!
-            case .git(let url, _):
+            case .git(let url, _), .tar(let url):
                 return url
             case .local(let path):
                 let url: URL
                 if path.hasPrefix("/") {
-                    url = URL(fileURLWithPath: path)
+                    url = URL(fileURLWithPath: path).standardizedFileURL
                 } else {
-                    let packageRoot = FileManager.default.currentDirectoryPath
-                    url = URL(fileURLWithPath: "\(packageRoot)/\(path)")
+                    url = packageRoot.appendingPathComponent(path).standardizedFileURL
                 }
                 return url
             }
@@ -104,11 +110,11 @@ struct Package: Decodable {
 
     struct CustomBuildSystemProperties: Decodable {
         // Command to configure sources
-        let configure: String
+        let configure: String?
         // Command to make sources
-        let make: String
+        let make: String?
         // Command to install built libraries
-        let install: String
+        let install: String?
         // Additional environment variables to pass to commands
         let env: [String: String]?
     }

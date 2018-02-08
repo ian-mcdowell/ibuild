@@ -1,11 +1,11 @@
 import Foundation
 
 enum CommandError: LocalizedError {
-    case error(cmd: String, errCode: Int32)
+    case error(cmd: String, errCode: Int32, output: String, error: String)
 
     var errorDescription: String? {
         switch self {
-            case .error(let cmd, let errCode): return "Error while running external command: \(cmd). Return code: \(errCode)"
+            case .error(let cmd, let errCode, let output, let error): return "Error while running external command: \(cmd). Return code: \(errCode). Output: \(output), Error: \(error)"
         }
     }
 }
@@ -48,7 +48,7 @@ struct Command {
     static func tryExec(_ cmd: String, currentDirectory: String? = nil, env: [String: String]? = nil, _ args: [String]) throws -> String {
         let result = Command.exec(cmd, currentDirectory: currentDirectory, env: env, args)
         if result.exitCode != 0 {
-            throw CommandError.error(cmd: cmd, errCode: result.exitCode)
+            throw CommandError.error(cmd: cmd, errCode: result.exitCode, output: result.output, error: result.error)
         }
         return result.output
     }
@@ -86,7 +86,7 @@ struct Command {
     static func trySpawn(_ cmd: String, currentDirectory: String? = nil, env: [String: String]? = nil, _ args: [String]) throws {
         let result = Command.spawn(cmd, currentDirectory: currentDirectory, env: env, args)
         if result != 0 {
-            throw CommandError.error(cmd: cmd, errCode: result)
+            throw CommandError.error(cmd: cmd, errCode: result, output: "", error: "")
         }
     }
 

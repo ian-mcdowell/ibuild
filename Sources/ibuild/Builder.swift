@@ -18,7 +18,7 @@ class Builder {
 
         let sourceRoot: URL
         if let location = buildProperties.location {
-            guard let locationOnDisk = projectSourceMap.location(ofProjectAt: try location.remoteLocation()) else {
+            guard let locationOnDisk = projectSourceMap.location(ofProjectAt: try location.remoteLocation(packageRoot: packageRoot)) else {
                 throw BuilderError.packageNotFound(package.name)
             }
             sourceRoot = locationOnDisk
@@ -105,14 +105,11 @@ class Builder {
     }
 
     func build() throws {
-        guard let libraryOutputs = self.buildProperties.outputs else {
-            print("No library outputs. Skipping build.")
-            return
-        }
+        let libraryOutputs = self.buildProperties.outputs ?? []
 
         var archOutputs: [String: URL] = [:]
         for arch in architectures {
-            print("Configuring \(packageName) for architecture: \(arch)")
+            print("\t > Configuring \(packageName) for architecture: \(arch)")
 
             let outputForArch = buildProducts.appendingPathComponent(arch)
 
@@ -127,8 +124,8 @@ class Builder {
                     hasBuilt = false
                 }
             }
-            if hasBuilt {
-                print("Already built all libraries for architecture: \(arch).")
+            if hasBuilt && !libraryOutputs.isEmpty {
+                print("\t > Already built all libraries for architecture: \(arch).")
                 continue
             }
 
@@ -181,7 +178,7 @@ class Builder {
     fileprivate func lipo(from architectureMap: [(architecture: String, url: URL)], toURL: URL) throws {
         try FileManager.default.createDirectory(atPath: toURL.deletingLastPathComponent().path, withIntermediateDirectories: true, attributes: nil)
 
-        print("Merging libraries \(architectureMap) to fat library at \(toURL)")
+        print("\t > Merging libraries \(architectureMap) to fat library at \(toURL)")
         var args = ["-create", "-output", toURL.path]
         for (arch, url) in architectureMap {
             args += ["-arch", arch, url.path]
@@ -243,7 +240,7 @@ class Builder {
                 let key = (arg as NSString).substring(with: range)
 
                 let value = env[key] ?? ""
-                print("Replacing \(key) with \(value)")
+                print("\t > Replacing \(key) with \(value)")
                 arg = (arg as NSString).replacingCharacters(in: result.range(at: 0), with: value)
             }
             return arg
@@ -258,7 +255,7 @@ class MakeBuilder: Builder {
     }
 
     override func build() throws {
-        print("Building package \(self.packageName) with make...")
+        print("\t > Building package \(self.packageName) with make...")
         try super.build()
     }
 
@@ -281,7 +278,7 @@ class MakeBuilder: Builder {
 
         args = applyEnvToArgs(args)
 
-        print("Running \(configureScript.path) with arguments: \(args)")
+        print("\t > Running \(configureScript.path) with arguments: \(args)")
 
         try Command.trySpawn(
             configureScript.path,
@@ -320,7 +317,7 @@ class CMakeBuilder: Builder {
     }
 
     override func build() throws {
-        print("Building package \(self.packageName) with CMake...")
+        print("\t > Building package \(self.packageName) with CMake...")
         try super.build()
     }
 
@@ -346,7 +343,7 @@ class CMakeBuilder: Builder {
         // Repository url
         args += [self.sourceRoot.path]
 
-        print("Running CMake with arguments: \(args)")
+        print("\t > Running CMake with arguments: \(args)")
 
         try Command.trySpawn(
             "/usr/local/bin/cmake",
@@ -489,8 +486,7 @@ class CustomBuilder: Builder {
         }
         args = applyEnv(args, env)
 
-        print("Running configure script: \(configure) \(args)")
-    
+        print("\t > Running custom configure script: \(configure) \(args)")
         try Command.trySpawn(
             configure,
             currentDirectory: self.sourceRoot.path,
@@ -509,6 +505,7 @@ class CustomBuilder: Builder {
         make = launchPath(forCommand: applyEnv(make, env))
         args = applyEnv(args, env)
 
+        print("\t > Running custom make command: \(install) \(args)")
         try Command.trySpawn(
             make,
             currentDirectory: self.sourceRoot.path,
@@ -529,6 +526,7 @@ class CustomBuilder: Builder {
         install = launchPath(forCommand: applyEnv(install, env))
         args = applyEnv(args, env)
 
+        print("\t > Running custom install command: \(install) \(args)")
         try Command.trySpawn(
             install,
             currentDirectory: self.sourceRoot.path,

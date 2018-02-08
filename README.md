@@ -38,7 +38,7 @@ Below is the schema for a `build.plist` file. A question mark represents an opti
     build?: {
 
         # The location of the source code to build
-        library?: {
+        location?: {
             # Type of the location.
             # Values: github / git / local
             type: String
@@ -91,9 +91,9 @@ Below is the schema for a `build.plist` file. A question mark represents an opti
 
         # When the build system is "custom", these properties determine which commands to run.
         customProperties?: {
-            configure: String
-            make: String
-            install: String
+            configure?: String
+            make?: String
+            install?: String
             env?: {
                 "key": "value"
             }

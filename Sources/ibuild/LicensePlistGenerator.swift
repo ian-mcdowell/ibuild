@@ -15,7 +15,7 @@ struct LicensePlistGenerator {
     
     private typealias LicensePlistType = [String: String]
     
-    static func writePlist(forPackages packages: [Package], toFile: URL, projectSourceMap: ProjectSourceMap) throws {
+    static func writePlist(forPackages packages: [(package: Package, location: URL)], toFile: URL, projectSourceMap: ProjectSourceMap) throws {
         
         var licenses: LicensePlistType
         do {
@@ -26,26 +26,17 @@ struct LicensePlistGenerator {
             licenses = [:]
         }
         
-        for package in packages {
-            
-            guard
-                let location = package.build?.location,
-                let remoteLocation = try? location.remoteLocation(),
-                let locationOnDisk = projectSourceMap.location(ofProjectAt: remoteLocation)
-            else {
-                print("Unable to find source location of package: \(package.name).")
-                continue
-            }
+        for (package, locationOnDisk) in packages {
             
             guard
                 let licensePath = locateLicenseInFolder(folder: locationOnDisk),
                 let license = try? String(contentsOf: licensePath, encoding: .utf8)
             else {
-                print("Unable to find license for package: \(package.name) in \(locationOnDisk).")
+                print("\t > Unable to find license for package: \(package.name) in \(locationOnDisk).")
                 continue
             }
             
-            print("Adding \(package.name)'s license to licenses plist")
+            print("\t > Adding \(package.name)'s license to licenses plist")
             
             licenses[package.name] = license
         }

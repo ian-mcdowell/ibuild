@@ -1,11 +1,12 @@
 TOOL_NAME = ibuild
-VERSION = 1.0.0
 
 PREFIX = /usr/local
 INSTALL_PATH = $(PREFIX)/bin/$(TOOL_NAME)
 BUILD_PATH = .build/release/$(TOOL_NAME)
 
-.PHONY: install build uninstall release
+.PHONY: install build clean uninstall
+
+default: build
 
 install: build
 	mkdir -p $(PREFIX)/bin
@@ -13,6 +14,9 @@ install: build
 
 build:
 	swift build --disable-sandbox -c release -Xswiftc -static-stdlib
+
+clean:
+	rm -rf $(BUILD_PATH)
 
 uninstall:
 	rm -rf $(INSTALL_PATH)
