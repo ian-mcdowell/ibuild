@@ -73,6 +73,9 @@ struct Package: Decodable {
         // Build system to use
         let buildSystem: BuildSystem
 
+        // Package-relative patch files to apply to the library's source code after retrieving.
+        let patches: [String]?
+
         // Arguments to pass to the configure script
         let buildArgs: [String]?
 

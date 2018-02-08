@@ -60,6 +60,10 @@ Below is the schema for a `build.plist` file. A question mark represents an opti
         # Values: none / cmake / make / xcode / custom
         buildSystem: String
 
+        # Package-relative patch files to apply to the
+        # library's source code after retrieving.
+        patches?: [String]
+
         # Arguments to pass when configuring / building
         buildArgs?: [String]
 

@@ -45,12 +45,19 @@ struct DependencyDownloader {
             package = result.package
             downloadLocation = result.location
         case .local(_):
-            package = try Package.inProject(fileURL: remoteLocation)
-            downloadLocation = remoteLocation
+            downloadLocation = sourceRoot.appendingPathComponent(UUID().uuidString)
+            // Copy package recursively from local url to the download location
+            try self.copyContentsOfDirectory(from: remoteLocation, to: downloadLocation)
+            package = try Package.inProject(fileURL: downloadLocation)
         }
 
         // Save where we downloaded the library
         projectSourceMap.set(location: downloadLocation, ofProjectAt: remoteLocation)
+
+        // Apply patches, if there are any
+        if let patches = package?.build?.patches {
+            try self.applyPatches(patches, to: downloadLocation)
+        }
 
         return (package, downloadLocation)
     }
@@ -60,13 +67,13 @@ struct DependencyDownloader {
         if let onDiskLocation = projectSourceMap.location(ofProjectAt: projectURL) {
             downloadLocation = onDiskLocation
             print("Github Dependency: \(projectURL.absoluteString) already downloaded.")
+            try gitReset(repository: downloadLocation)
+            try gitCheckout(branch: branch, repository: downloadLocation)
             try gitPull(repository: downloadLocation)
         } else {
-            let uuid = UUID().uuidString
-            downloadLocation = sourceRoot.appendingPathComponent(uuid)
+            downloadLocation = sourceRoot.appendingPathComponent(UUID().uuidString)
             try gitClone(url: projectURL, destination: downloadLocation)
         }
-        try gitCheckout(branch: branch, repository: downloadLocation)
 
         let package = try Package.inProject(fileURL: downloadLocation)
         return (package, downloadLocation)
@@ -81,7 +88,22 @@ struct DependencyDownloader {
         try Command.tryExec("/usr/bin/git", currentDirectory: repository.path, ["pull"])
     }
 
+    private static func gitReset(repository: URL) throws {
+        try Command.tryExec("/usr/bin/git", currentDirectory: repository.path, ["reset", "--hard"])
+    }
+
     private static func gitCheckout(branch: String, repository: URL) throws {
         try Command.tryExec("/usr/bin/git", currentDirectory: repository.path, ["checkout", branch])
+    }
+
+    private static func copyContentsOfDirectory(from: URL, to: URL) throws {
+        try Command.tryExec("/bin/rm", ["-r", "-f", to.path])
+        try Command.tryExec("/bin/cp", ["-R", from.path, to.path])
+    }
+
+    private static func applyPatches(_ patches: [String], to: URL) throws {
+        for patch in patches {
+            try Command.tryExec("/usr/bin/patch", currentDirectory: to.path, ["-p", "1", "-i", patch])
+        }
     }
 }
