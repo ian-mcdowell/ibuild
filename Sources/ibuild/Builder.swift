@@ -278,7 +278,7 @@ class MakeBuilder: Builder {
 
         args = applyEnvToArgs(args)
 
-        print("\t > Running \(configureScript.path) with arguments: \(args)")
+        print("\t > Running configure with arguments: \(args.joined(separator: " "))")
 
         try Command.trySpawn(
             configureScript.path,

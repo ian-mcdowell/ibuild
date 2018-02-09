@@ -44,7 +44,7 @@ struct DependencyDownloader {
         let remoteLocation = try location.remoteLocation(packageRoot: packageRoot)
         let (downloadLocation, cached) = self.location(forProjectAt: remoteLocation, sourceRoot: sourceRoot, projectSourceMap: projectSourceMap)
 
-        print("\t > Retrieving package from: \(remoteLocation.absoluteString)")
+        print("\t > Retrieving package from: \(remoteLocation.absoluteString) \(cached ? "Cached" : "Not cached")")
 
         switch location {
         case .github(_, let branch), .git(_, let branch):
@@ -67,10 +67,11 @@ struct DependencyDownloader {
     private static func downloadGitPackage(at projectURL: URL, branch: String, into destinationURL: URL, cached: Bool, projectSourceMap: ProjectSourceMap) throws -> Package? {
         if cached {
             try gitReset(repository: destinationURL)
+            try gitFetch(branch: branch, repository: destinationURL)
             try gitCheckout(branch: branch, repository: destinationURL)
-            try gitPull(repository: destinationURL)
         } else {
             try gitClone(url: projectURL, destination: destinationURL)
+            try gitCheckout(branch: branch, repository: destinationURL)
         }
 
         return try Package.inProject(fileURL: destinationURL)
@@ -84,12 +85,12 @@ struct DependencyDownloader {
     }
 
     private static func gitClone(url: URL, destination: URL) throws {
-        print("Cloning project: \(url.absoluteString)")
+        print("\t > Cloning project: \(url.absoluteString)")
         try Command.tryExec("/usr/bin/git", ["clone", "--recursive", url.absoluteString, destination.path])
     }
 
-    private static func gitPull(repository: URL) throws {
-        try Command.tryExec("/usr/bin/git", currentDirectory: repository.path, ["pull"])
+    private static func gitFetch(branch: String, repository: URL) throws {
+        try Command.tryExec("/usr/bin/git", currentDirectory: repository.path, ["fetch", "origin", branch])
     }
 
     private static func gitReset(repository: URL) throws {
