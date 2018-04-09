@@ -381,19 +381,18 @@ class XcodeBuilder: Builder {
 
         let environment = ProcessInfo.processInfo.environment
 
-        let deploymentTarget: String
+        let deploymentTarget: String?
         if let deploymentTargetName = environment["DEPLOYMENT_TARGET_SETTING_NAME"], let value = environment[deploymentTargetName] {
             deploymentTarget = "\(deploymentTargetName)=\(value)"
         } else if let value = environment["IPHONEOS_DEPLOYMENT_TARGET"] {
             deploymentTarget = "IPHONEOS_DEPLOYMENT_TARGET=\(value)"
         } else {
-            deploymentTarget = "IPHONEOS_DEPLOYMENT_TARGET=9.0"
+            deploymentTarget = nil
         }
         var args = [
             "install",
             "-sdk", self.sysroot.path,
             "-arch", architecture,
-            deploymentTarget,
             "OBJROOT=\(buildOutputURL.path)",
             "SYMROOT=\(buildOutputURL.path)",
             "DSTROOT=\(buildOutputURL.path)",
@@ -401,6 +400,9 @@ class XcodeBuilder: Builder {
             "IBUILD_CURRENT_BUILD_ROOT=\(self.buildRoot.path)",
             "IBUILD_CURRENT_PACKAGE_ROOT=\(packageRoot.path)"
         ]
+        if let deploymentTarget = deploymentTarget {
+            args += [deploymentTarget]
+        }
         if let packageArgs = self.buildProperties.buildArgs {
             args += packageArgs
         }
