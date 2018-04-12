@@ -30,6 +30,12 @@ do {
         buildRoot = filesRoot.appendingPathComponent("build")
     }
 
+    // Get the project source map for this package
+    let projectSourceMap = ProjectSourceMap.inRoot(filesRoot)
+
+    // Save the root package's location into the map
+    projectSourceMap.set(location: packageRoot, ofProjectAt: packageRoot)
+
     // Parse cmd line
     let argc = CommandLine.arguments.count
     let action: String
@@ -46,12 +52,6 @@ do {
         guard let package = try Package.inProject(fileURL: packageRoot) else {
             throw IBuildError.packageNotFoundInPackageRoot
         }
-
-        // Get the project source map for this package
-        let projectSourceMap = ProjectSourceMap.inRoot(filesRoot)
-
-        // Save the root package's location into the map
-        projectSourceMap.set(location: packageRoot, ofProjectAt: packageRoot)
 
         // Get its dependencies
         print("\n > Fetching dependencies")
@@ -103,8 +103,16 @@ do {
             try FileManager.default.removeItem(at: buildRoot)
         }
         print("\n > Successfully cleaned project.")
+    case "copy-frameworks":
+
+        // Load the build.plist of the current directory
+        guard let package = try Package.inProject(fileURL: packageRoot) else {
+            throw IBuildError.packageNotFoundInPackageRoot
+        }
+
+        try FrameworkCopier(package: package, packageRoot: packageRoot, buildRoot: buildRoot, projectSourceMap: projectSourceMap).copyFrameworks()
     default:
-        print("Invalid action: \(action). Options are: \"build\", \"archive\", \"clean\".")
+        print("Invalid action: \(action). Options are: \"build\", \"archive\", \"clean\", \"copy-frameworks\".")
     }
 
 } catch {
