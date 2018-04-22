@@ -67,8 +67,8 @@ struct DependencyDownloader {
     private static func downloadGitPackage(at projectURL: URL, branch: String, into destinationURL: URL, cached: Bool, projectSourceMap: ProjectSourceMap) throws -> Package? {
         if cached {
             try gitReset(repository: destinationURL)
-            try gitFetch(branch: branch, repository: destinationURL)
             try gitCheckout(branch: branch, repository: destinationURL)
+            try gitPull(branch: branch, repository: destinationURL)
         } else {
             try gitClone(url: projectURL, destination: destinationURL)
             try gitCheckout(branch: branch, repository: destinationURL)
@@ -89,8 +89,8 @@ struct DependencyDownloader {
         try Command.tryExec("/usr/bin/git", ["clone", "--recursive", url.absoluteString, destination.path])
     }
 
-    private static func gitFetch(branch: String, repository: URL) throws {
-        try Command.tryExec("/usr/bin/git", currentDirectory: repository.path, ["fetch", "origin", branch])
+    private static func gitPull(branch: String, repository: URL) throws {
+        try Command.tryExec("/usr/bin/git", currentDirectory: repository.path, ["pull", "origin", branch])
     }
 
     private static func gitReset(repository: URL) throws {
