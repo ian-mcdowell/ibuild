@@ -1,0 +1,16 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "llbuild",
+        "repositoryURL": "https://github.com/apple/swift-llbuild.git",
+        "state": {
+          "branch": "master",
+          "revision": "0125492ccb618450970d55831630706d31c339c7",
+          "version": null
+        }
+      }
+    ]
+  },
+  "version": 1
+}

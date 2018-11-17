@@ -1,14 +1,5 @@
 import Foundation
-
-enum IBuildError: LocalizedError {
-    case packageNotFoundInPackageRoot
-
-    var errorDescription: String? {
-        switch self {
-            case .packageNotFoundInPackageRoot: return "A build.plist was not found in the root of this package."
-        }
-    }
-}
+import llbuildSwift
 
 do {
     let environment = ProcessInfo.processInfo.environment
@@ -29,12 +20,8 @@ do {
     } else {
         buildRoot = filesRoot.appendingPathComponent("build")
     }
-
-    // Get the project source map for this package
-    let projectSourceMap = ProjectSourceMap.inRoot(filesRoot)
-
-    // Save the root package's location into the map
-    projectSourceMap.set(location: packageRoot, ofProjectAt: packageRoot)
+    let buildProductsRoot = buildRoot.appendingPathComponent("Products")
+    let buildIntermediatesRoot = buildRoot.appendingPathComponent("Intermediates")
 
     // Parse cmd line
     let argc = CommandLine.arguments.count
@@ -46,58 +33,24 @@ do {
     }
 
     switch action {
-    case "build", "archive", "install", "test": 
+    case "build", "archive", "install", "test":
 
-        // Load the build.plist of the current directory
-        guard let package = try Package.inProject(fileURL: packageRoot) else {
-            throw IBuildError.packageNotFoundInPackageRoot
-        }
+        // Create .ibuild folder
+        try FileManager.default.createDirectory(at: filesRoot, withIntermediateDirectories: true, attributes: nil)
 
-        // Get its dependencies
-        print("\n > Fetching dependencies")
-        let dependencies = try DependencyDownloader.downloadDependencies(ofPackage: package, intoSourceRoot: sourceRoot, packageRoot: packageRoot, projectSourceMap: projectSourceMap)
+        let buildSystem = BuildSystem(
+            packageRoot: packageRoot,
+            sourceRoot: sourceRoot, 
+            buildProductsRoot: buildProductsRoot,
+            buildIntermediatesRoot: buildIntermediatesRoot
+        )
+        let engine = BuildEngine(delegate: buildSystem)
+        try engine.attachDB(path: filesRoot.appendingPathComponent("build.db").path)
 
-        // Sort dependencies into build order
-        let sorted = DependencySorter.buildOrder(forBuilding: dependencies)
-
-        if !sorted.isEmpty {
-            print("\n > Building dependencies:")
-            for dependency in sorted {
-                print("\t\(dependency.package.name)")
-            }
-            for dependency in sorted {
-                if let builder = try Builder.forPackage(dependency.package, packageRoot: dependency.location, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
-                    try builder.build()
-                }
-            }
-        }
-
-        if environment["IBUILD_DEPENDENCIES_ONLY"] != "YES" {
-            // Download library
-            if let buildProperties = package.build {
-                print("\n > Fetching library")
-                if let location = buildProperties.location {
-                    try DependencyDownloader.downloadLibrary(at: location, intoSourceRoot: sourceRoot, packageRoot: packageRoot, projectSourceMap: projectSourceMap)
-                }
-
-                print("\n > Building library")
-                // Build library
-                if let builder = try Builder.forPackage(package, packageRoot: packageRoot, projectSourceMap: projectSourceMap, buildRoot: buildRoot) {
-                    try builder.build()
-                }
-            }
-        }
+        // Build package at our package root, as well as dependencies
+        let packageKey = buildSystem.keyForPackage(Package.Location.local(path: packageRoot.path))
+        _ = engine.build(key: packageKey)
         
-        // Generate licenses plist
-        var allPackages = sorted
-        allPackages += [(package, packageRoot)]
-        let location = buildRoot.appendingPathComponent("Licenses.plist")
-        
-        print("\n > Generating licenses plist for packages. It will be located at: \(location.path)")
-        try LicensePlistGenerator.writePlist(forPackages: allPackages, toFile: location, projectSourceMap: projectSourceMap)
-
-        print("\n > ibuild completed successfully.")
-        print("Built packages: \(allPackages.count)")
     case "clean":
         if FileManager.default.fileExists(atPath: buildRoot.path) {
             try FileManager.default.removeItem(at: buildRoot)
@@ -106,11 +59,9 @@ do {
     case "copy-frameworks":
 
         // Load the build.plist of the current directory
-        guard let package = try Package.inProject(fileURL: packageRoot) else {
-            throw IBuildError.packageNotFoundInPackageRoot
-        }
+        let package = try Package.inProject(fileURL: packageRoot)
 
-        try FrameworkCopier(package: package, packageRoot: packageRoot, buildRoot: buildRoot, projectSourceMap: projectSourceMap).copyFrameworks()
+        try FrameworkCopier(package: package, packageRoot: packageRoot, buildProductsRoot: buildProductsRoot).copyFrameworks()
     default:
         print("Invalid action: \(action). Options are: \"build\", \"archive\", \"clean\", \"copy-frameworks\".")
     }

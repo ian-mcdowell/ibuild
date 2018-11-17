@@ -4,12 +4,16 @@ import PackageDescription
 
 let package = Package(
     name: "ibuild",
+    products: [
+        .executable(name: "ibuild", targets: ["ibuild"]),
+    ],
     dependencies: [
+        .package(url: "https://github.com/apple/swift-llbuild.git", .branch("master")),
     ],
     targets: [
         .target(
             name: "ibuild",
-            dependencies: []
+            dependencies: ["llbuildSwift"]
 	    ),
     ]
 )

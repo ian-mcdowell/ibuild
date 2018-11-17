@@ -17,14 +17,13 @@ enum FrameworkCopyError: LocalizedError {
 struct FrameworkCopier {
     private let package: Package
     private let packageRoot: URL
-    private let buildRoot: URL
-    private let projectSourceMap: ProjectSourceMap
-    init(package: Package, packageRoot: URL, buildRoot: URL, projectSourceMap: ProjectSourceMap) {
-        self.package = package; self.packageRoot = packageRoot; self.buildRoot = buildRoot; self.projectSourceMap = projectSourceMap
+    private let buildProductsRoot: URL
+    init(package: Package, packageRoot: URL, buildProductsRoot: URL) {
+        self.package = package; self.packageRoot = packageRoot; self.buildProductsRoot = buildProductsRoot
     }
 
     func copyFrameworks() throws {
-        let frameworks = try self.frameworks()
+        let frameworks = try FileManager.default.contentsOfDirectory(at: self.buildProductsRoot, includingPropertiesForKeys: nil, options: .skipsSubdirectoryDescendants).filter { $0.pathExtension == "framework" }
 
         let environment = ProcessInfo.processInfo.environment
         guard 
@@ -41,36 +40,8 @@ struct FrameworkCopier {
         print(" > Copying frameworks to \(frameworksFolder.path)")
 
         for framework in frameworks {
-            try copyFramework(self.buildRoot.appendingPathComponent(framework), to: frameworksFolder)
+            try copyFramework(framework, to: frameworksFolder)
         }
-    }
-
-    private func frameworks() throws -> [String] {
-        let dependencies = try self.dependencies(ofPackage: package, packageRoot: self.packageRoot)
-        var frameworkNames = dependencies.flatMap { dependency -> [String] in 
-            guard let outputs = dependency.build?.outputs else { return [] }
-            return outputs.filter { $0.hasSuffix(".framework") }
-        }
-        // Remove duplicates
-        frameworkNames = Array(Set(frameworkNames))
-
-        return frameworkNames
-    }
-
-    private func dependencies(ofPackage package: Package, packageRoot: URL) throws -> [Package] {
-        var packages = [package]
-        guard let dependencies = package.dependencies else { return packages }
-        for location in dependencies {
-            let projectURL = try location.remoteLocation(packageRoot: packageRoot)
-            guard 
-                let location = projectSourceMap.location(ofProjectAt: projectURL),
-                let package = try Package.inProject(fileURL: location)
-            else {
-                throw FrameworkCopyError.packageNotDownloaded(projectURL)
-            }
-            packages.append(contentsOf: try self.dependencies(ofPackage: package, packageRoot: location))
-        }
-        return packages
     }
 
     private func copyFramework(_ framework: URL, to frameworksFolder: URL) throws {

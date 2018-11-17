@@ -1,19 +1,30 @@
 import Foundation
+import CommonCrypto
 
 enum PackageError: LocalizedError {
+    case buildPlistNotFound(url: URL)
     case parsingError(error: Error)
     case invalidURL(url: String)
+    case missingItemInKeySequence
 
     var errorDescription: String? {
         switch self {
+            case .buildPlistNotFound(let url): return "A build.plist was not found in the root of this package: \(url.path)"
             case .parsingError(let error): return "Error parsing package property list: \(error)."
             case .invalidURL(let url): return "Invalid URL found while parsing: \(url)"
+            case .missingItemInKeySequence: return "Missing required item in key sequence."
         }
     }
 }
 
 struct Package: Decodable {
 
+    /// Loaded from a build.plist file and convertible to a custom key sequence (string array)
+    ///
+    /// Example key sequences:
+    ///     <L | github | path | branch>
+    ///     <L | git | https://test.com/asdf.git | master>
+    ///     <L | local | ../test/hello>
     enum Location: Decodable {
         case github(path: String, branch: String)
         case git(url: URL, branch: String)
@@ -53,6 +64,38 @@ struct Package: Decodable {
                 self = .local(path: path)
             }
         }
+        init(from keySequence: [String]) throws {
+            guard 
+                let typeStr = keySequence[safe: 0],
+                let type = LibraryType.init(rawValue: typeStr),
+                let pathOrURL = keySequence[safe: 1]
+            else {
+                throw PackageError.missingItemInKeySequence
+            }
+
+            switch type {
+            case .github:
+                guard let branch = keySequence[safe: 2] else {
+                    throw PackageError.missingItemInKeySequence
+                }
+                self = .github(path: pathOrURL, branch: branch)
+            case .git:
+                guard let url = URL(string: pathOrURL) else {
+                    throw PackageError.invalidURL(url: pathOrURL)
+                }
+                guard let branch = keySequence[safe: 2] else {
+                    throw PackageError.missingItemInKeySequence
+                }
+                self = .git(url: url, branch: branch)
+            case .tar:
+                guard let url = URL(string: pathOrURL) else {
+                    throw PackageError.invalidURL(url: pathOrURL)
+                }
+                self = .tar(url: url)
+            case .local:
+                self = .local(path: pathOrURL)
+            }
+        }
 
         func remoteLocation(packageRoot: URL) throws -> URL {
             switch self {
@@ -69,6 +112,31 @@ struct Package: Decodable {
                 }
                 return url
             }
+        }
+
+        func asKeySequence() -> [String] {
+            switch self {
+            case .github(let path, let branch):
+                return [LibraryType.github.rawValue, path, branch]
+            case .git(let url, let branch):
+                return [LibraryType.git.rawValue, url.absoluteString, branch]
+            case .tar(let url):
+                return [LibraryType.tar.rawValue, url.absoluteString]
+            case .local(let path):
+                return [LibraryType.local.rawValue, path]
+            }
+        }
+
+        var sha1: String {
+            guard let data = self.asKeySequence().joined(separator: "/").data(using: String.Encoding.utf8) else { return "" }
+
+            let hash = data.withUnsafeBytes { (bytes: UnsafePointer<Data>) -> [UInt8] in
+                var hash: [UInt8] = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+                CC_SHA1(bytes, CC_LONG(data.count), &hash)
+                return hash
+            }
+
+            return hash.map { String(format: "%02x", $0) }.joined()
         }
     }
 
@@ -129,10 +197,10 @@ struct Package: Decodable {
     let dependencies: [Location]?
 
     /// Decode a Package from the property list at the given local URL
-    static func inProject(fileURL: URL) throws -> Package? {
+    static func inProject(fileURL: URL) throws -> Package {
         let packageURL = fileURL.appendingPathComponent("build.plist")
         if !FileManager.default.fileExists(atPath: packageURL.path) {
-            return nil
+            throw PackageError.buildPlistNotFound(url: fileURL)
         }
         let data = try Data(contentsOf: packageURL)
         let decoder = PropertyListDecoder()

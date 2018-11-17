@@ -11,65 +11,40 @@ enum BuilderError: LocalizedError {
 }
 
 class Builder {
-    static func forPackage(_ package: Package, packageRoot: URL, projectSourceMap: ProjectSourceMap, buildRoot: URL) throws -> Builder? {
-        guard let buildProperties = package.build else {
-            return nil
-        }
-
-        let sourceRoot: URL
-        if let location = buildProperties.location {
-            guard let locationOnDisk = projectSourceMap.location(ofProjectAt: try location.remoteLocation(packageRoot: packageRoot)) else {
-                throw BuilderError.packageNotFound(package.name)
-            }
-            sourceRoot = locationOnDisk
-        } else {
-            sourceRoot = packageRoot
-        }
-
-        let builderClass: Builder.Type
-        switch buildProperties.buildSystem {
-            case .cmake: builderClass = CMakeBuilder.self 
-            case .make: builderClass = MakeBuilder.self 
-            case .xcode: builderClass = XcodeBuilder.self
-            case .custom: builderClass = CustomBuilder.self
-        }
-        return try builderClass.init(buildProperties: buildProperties, packageName: package.name, packageRoot: packageRoot, sourceRoot: sourceRoot, buildRoot: buildRoot)
-    }
 
     let packageName: String
     let buildProperties: Package.BuildProperties
     let env: [String: String]
 
-    let architectures: [String]
+    let architecture: String
     let platformName: String
     /// Root of the package that's building the library
     let packageRoot: URL
     /// Root of the library to be built
     let sourceRoot: URL
-    let buildRoot: URL
+    let buildProductsRoot: URL
     let buildProducts: URL
     let sysroot: URL
     let deploymentTarget: String
 
-    required init(buildProperties: Package.BuildProperties, packageName: String, packageRoot: URL, sourceRoot: URL, buildRoot: URL) throws {
+    let configureOutput: URL
+    let buildOutput: URL
+
+    required init(buildProperties: Package.BuildProperties, packageName: String, packageRoot: URL, sourceRoot: URL, buildProductsRoot: URL, buildIntermediatesRoot: URL, architecture: String) throws {
         self.buildProperties = buildProperties
         self.packageName = packageName
         self.packageRoot = packageRoot
         self.sourceRoot = sourceRoot
-        self.buildRoot = buildRoot
+        self.buildProductsRoot = buildProductsRoot
+        self.architecture = architecture
 
         let environment = ProcessInfo.processInfo.environment
         if let tmpDir = environment["CONFIGURATION_TEMP_DIR"] {
-            self.buildProducts = URL(fileURLWithPath: tmpDir).appendingPathComponent(sourceRoot.lastPathComponent)
+            self.buildProducts = URL(fileURLWithPath: tmpDir).appendingPathComponent(sourceRoot.lastPathComponent).appendingPathComponent(architecture)
         } else {
-            self.buildProducts = buildRoot.appendingPathComponent("products").appendingPathComponent(sourceRoot.lastPathComponent)
+            self.buildProducts = buildIntermediatesRoot.appendingPathComponent(sourceRoot.lastPathComponent).appendingPathComponent(architecture)
         }
 
-        if let archs = environment["ARCHS"] {
-            self.architectures = archs.components(separatedBy: .whitespaces)
-        } else {
-            self.architectures = ["arm64"]
-        }
         if let platformName = environment["PLATFORM_NAME"] {
             self.platformName = platformName
         } else {
@@ -84,6 +59,9 @@ class Builder {
             self.deploymentTarget = "-miphoneos-version-min=9.0"
         }
 
+        self.configureOutput = self.buildProducts.appendingPathComponent("configure")
+        self.buildOutput = self.buildProducts.appendingPathComponent("build")
+
         self.env = [
             "CC": try Command.tryExec("/usr/bin/xcrun", ["-find", "clang"]),
             "CPP": try Command.tryExec("/usr/bin/xcrun", ["-find", "clang"]),
@@ -95,7 +73,7 @@ class Builder {
             "PKGROOT": self.packageRoot.path,
             "SRCROOT": self.sourceRoot.path,
             "SDKROOT": self.sysroot.path,
-            "BUILDROOT": self.buildRoot.path
+            "BUILDROOT": self.buildProductsRoot.path
         ]
 
         try self.setup()
@@ -105,68 +83,24 @@ class Builder {
     }
 
     func build() throws {
-        let libraryOutputs = self.buildProperties.outputs ?? []
 
-        var archOutputs: [String: URL] = [:]
-        for arch in architectures {
-            print("\t > Configuring \(packageName) for architecture: \(arch)")
+        print("\t > Configuring \(packageName) for architecture: \(architecture)")
 
-            let outputForArch = buildProducts.appendingPathComponent(arch)
+        try FileManager.default.createDirectory(atPath: configureOutput.path, withIntermediateDirectories: true, attributes: nil)
+        try FileManager.default.createDirectory(atPath: buildOutput.path, withIntermediateDirectories: true, attributes: nil)
 
-            let configureOutput = outputForArch.appendingPathComponent("configure")
-            let buildOutput = outputForArch.appendingPathComponent("build")
-            archOutputs[arch] = buildOutput
-
-            // Don't build if already exists
-            var hasBuilt = true
-            for libraryName in libraryOutputs {
-                if !FileManager.default.fileExists(atPath: buildOutput.appendingPathComponent(libraryName).path) {
-                    hasBuilt = false
-                }
-            }
-            if hasBuilt && !libraryOutputs.isEmpty {
-                print("\t > Already built all libraries for architecture: \(arch).")
-                continue
-            }
-
-            try FileManager.default.createDirectory(atPath: configureOutput.path, withIntermediateDirectories: true, attributes: nil)
-            try FileManager.default.createDirectory(atPath: buildOutput.path, withIntermediateDirectories: true, attributes: nil)
-
-            try self.configure(
-                architecture: arch, 
-                inURL: configureOutput,
-                buildOutputURL: buildOutput
-            )
-            try self.make(
-                fromURL: configureOutput
-            )
-            try self.install(
-                fromURL: configureOutput,
-                toURL: buildOutput
-            )
-        }
-
-        // Copy headers and pkgconfig
-        if let arch = architectures.first {
-            let archOutput = archOutputs[arch]!
-            try self.copyHeadersAndMetadata(fromURL: archOutput, toURL: buildRoot)
-            try self.copyHeadersAndMetadata(fromURL: archOutput, toURL: buildRoot.appendingPathComponent(self.packageName), isPackageSpecific: true)
-        }
-
-        // LIPO to create fat binary for each library
-        for libraryName in libraryOutputs {
-            let archMap = architectures.map { arch in
-                return (arch, archOutputs[arch]!.appendingPathComponent(libraryName))
-            }
-            try self.lipo(
-                from: archMap, 
-                toURL: buildRoot.appendingPathComponent(libraryName)
-            )
-            try self.lipo(
-                from: archMap, 
-                toURL: buildRoot.appendingPathComponent(self.packageName).appendingPathComponent(libraryName)
-            )
-        }
+        try self.configure(
+            architecture: architecture,
+            inURL: configureOutput,
+            buildOutputURL: buildOutput
+        )
+        try self.make(
+            fromURL: configureOutput
+        )
+        try self.install(
+            fromURL: configureOutput,
+            toURL: buildOutput
+        )
     }
 
     fileprivate func configure(architecture: String, inURL url: URL, buildOutputURL: URL) throws {}
@@ -174,59 +108,6 @@ class Builder {
     fileprivate func make(fromURL url: URL) throws {}
 
     fileprivate func install(fromURL url: URL, toURL: URL) throws {}
-
-    fileprivate func lipo(from architectureMap: [(architecture: String, url: URL)], toURL: URL) throws {
-        try FileManager.default.createDirectory(atPath: toURL.deletingLastPathComponent().path, withIntermediateDirectories: true, attributes: nil)
-
-        print("\t > Merging libraries \(architectureMap) to fat library at \(toURL)")
-        var args = ["-create", "-output", toURL.path]
-        for (arch, url) in architectureMap {
-            args += ["-arch", arch, url.path]
-        }
-
-        try Command.trySpawn(
-            "/usr/bin/lipo",
-            args
-        )
-    }
-
-    fileprivate func copyHeadersAndMetadata(fromURL url: URL, toURL: URL, isPackageSpecific: Bool = false) throws {
-        try FileManager.default.createDirectory(atPath: toURL.path, withIntermediateDirectories: true, attributes: nil)
-        
-        // Copy headers
-        let headersURL = url.appendingPathComponent("include")
-        if FileManager.default.fileExists(atPath: headersURL.path) {
-            let headersRoot = buildRoot.appendingPathComponent("include")
-            try FileManager.default.createDirectory(atPath: headersRoot.path, withIntermediateDirectories: true, attributes: nil)
-            try Command.cp(from: headersURL, to: toURL)
-        }
-
-        // Copy pkgconfig
-        let pkgconfigURL = url.appendingPathComponent("lib").appendingPathComponent("pkgconfig")
-        if !isPackageSpecific && FileManager.default.fileExists(atPath: pkgconfigURL.path) {
-            let libRoot = toURL.appendingPathComponent("lib")
-            let pkgconfigRoot = libRoot.appendingPathComponent("pkgconfig")
-            try FileManager.default.createDirectory(atPath: pkgconfigRoot.path, withIntermediateDirectories: true, attributes: nil)
-            try Command.cp(from: pkgconfigURL, to: libRoot)
-
-            // Replace arch output path with new path for each file
-            for path in try FileManager.default.contentsOfDirectory(at: pkgconfigRoot, includingPropertiesForKeys: nil, options: []) {
-                try String(contentsOf: path).replacingOccurrences(of: url.path, with: toURL.path).write(to: path, atomically: true, encoding: .utf8)
-            }
-        }
-
-        // Copy swiftmodules
-        let swiftmoduleURL = url.appendingPathComponent("swiftmodules")
-        if FileManager.default.fileExists(atPath: swiftmoduleURL.path) {
-            try Command.cp(from: swiftmoduleURL, to: toURL)
-        }
-
-        if isPackageSpecific, let auxiliary = self.buildProperties.auxiliaryFiles {
-            for (sourcePath, destinationPath) in auxiliary {
-                try Command.cp(from: packageRoot.appendingPathComponent(sourcePath), to: toURL.appendingPathComponent(destinationPath))
-            }
-        }
-    }
 
     fileprivate func applyEnvToArgs(_ args: [String], _ additionalEnv: [String: String] = [:]) -> [String] {
         let env = self.env.merging(additionalEnv) { (_, additional) in additional }
@@ -255,7 +136,6 @@ class MakeBuilder: Builder {
     }
 
     override func build() throws {
-        print("\t > Building package \(self.packageName) with make...")
         try super.build()
     }
 
@@ -317,7 +197,6 @@ class CMakeBuilder: Builder {
     }
 
     override func build() throws {
-        print("\t > Building package \(self.packageName) with CMake...")
         try super.build()
     }
 
@@ -328,7 +207,7 @@ class CMakeBuilder: Builder {
             "-DCMAKE_INSTALL_PREFIX=\(buildOutputURL.path)",
             "-DCMAKE_OSX_SYSROOT=\(self.sysroot.path)",
             "-DCMAKE_OSX_ARCHITECTURES=\(architecture)",
-            "-DCMAKE_PREFIX_PATH=\(self.buildRoot.path)",
+            "-DCMAKE_PREFIX_PATH=\(self.buildProductsRoot.path)",
             "-DPKG_CONFIG_USE_CMAKE_PREFIX_PATH=ON"
         ]
         if let packageArgs = self.buildProperties.buildArgs {
@@ -397,7 +276,7 @@ class XcodeBuilder: Builder {
             "SYMROOT=\(buildOutputURL.path)",
             "DSTROOT=\(buildOutputURL.path)",
             "ONLY_ACTIVE_ARCH=YES",
-            "IBUILD_CURRENT_BUILD_ROOT=\(self.buildRoot.path)",
+            "IBUILD_CURRENT_BUILD_ROOT=\(self.buildProductsRoot.path)",
             "IBUILD_CURRENT_PACKAGE_ROOT=\(packageRoot.path)"
         ]
         if let deploymentTarget = deploymentTarget {
@@ -430,34 +309,6 @@ class XcodeBuilder: Builder {
                 try FileManager.default.createDirectory(atPath: swiftmoduleURL.path, withIntermediateDirectories: true, attributes: nil)
                 try Command.cp(from: path, to: swiftmoduleURL.appendingPathComponent(path.lastPathComponent))
             }
-        }
-    }
-
-    override func lipo(from architectureMap: [(architecture: String, url: URL)], toURL: URL) throws {
-        if toURL.pathExtension == "framework" {
-            // Special behavior for frameworks: 
-            // - Copy framework from first architecture
-            // - Lipo FrameworkName.framework/FrameworkName binary.
-            // - Copy swiftmodules from FrameworkName.framework/Modules/FrameworkName.swiftmodule
-            
-            if let firstArchitecture = architectureMap.first?.url {
-                try Command.cp(from: firstArchitecture, to: toURL.deletingLastPathComponent())
-            }
-
-            let binaryName = toURL.deletingPathExtension().lastPathComponent
-            let binaryArchitectureMap = architectureMap.map { (architecture: $0.architecture, url: $0.url.appendingPathComponent(binaryName)) }
-            let binaryToURL = toURL.appendingPathComponent(binaryName)
-            try super.lipo(from: binaryArchitectureMap, toURL: binaryToURL)
-
-            for arch in architectureMap {
-                let swiftmodule = arch.url.appendingPathComponent("Modules").appendingPathComponent("\(binaryName).swiftmodule")
-                if FileManager.default.fileExists(atPath: swiftmodule.path) {
-                    try Command.cp(from: swiftmodule, to: toURL.appendingPathComponent("Modules"))
-                }
-            }
-        } else {
-            // Default behavior
-            try super.lipo(from: architectureMap, toURL: toURL)
         }
     }
 }

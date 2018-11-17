@@ -122,3 +122,44 @@ Below is the schema for a `build.plist` file. A question mark represents an opti
     ]
 }
 ```
+
+# llbuild Task Heirarchy
+
+```
+PackageTask(location)
+    DownloadPackageLocationTask(location)
+
+    PackageDependenciesTask([location])
+        PackageTask(location)
+
+    BuildPackageTask(Package)
+        DownloadPackageLocationTask(location) // build location
+        BuildTask(Package)
+            BuildArchitectureTask(Package, architecture)
+        CopyHeadersAndMetadataTask(Package)
+        LipoTask(Package)
+```
+
+# Folder Heirarchy
+
+```
+.ibuild
+    build.db
+    build
+        Products
+            lib
+            include
+            Framework.framework
+        Intermediates
+            uuid
+                arch
+                    build
+                        lib
+                        include
+                        Framework.framework
+                    configure
+                        ...
+    checkout
+        uuid
+            <repo>
+```

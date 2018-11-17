@@ -13,7 +13,7 @@ install: build
 	cp -f $(BUILD_PATH) $(INSTALL_PATH)
 
 build:
-	swift build --disable-sandbox -c release -Xswiftc -static-stdlib
+	swift build -c release -Xcxx -UDEBUG -Xlinker -lsqlite3 -Xlinker -lncurses -Xswiftc -DLLBUILD_C_API_VERSION_6 --disable-sandbox
 
 clean:
 	rm -rf $(BUILD_PATH)
