@@ -37,7 +37,7 @@ class BuildPackageRule: PackageRuleProtocol {
 
         func start(_ engine: TaskBuildEngine) {
             guard let buildProperties = rule.package.build else {
-                return engine.taskIsComplete(Value(""), forceChange: false)
+                return
             }
 
             if let location = buildProperties.location {

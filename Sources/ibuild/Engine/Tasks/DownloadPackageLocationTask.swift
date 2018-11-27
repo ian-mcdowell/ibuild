@@ -37,16 +37,6 @@ class DownloadPackageLocationRule: LocationRuleProtocol {
         func inputsAvailable(_ engine: TaskBuildEngine) {
             let rule = self.rule
 
-            // Don't try to download the current package
-            switch rule.location {
-            case .local(let path):
-                if path == rule.buildSystem.packageRoot.path {
-                    return engine.taskIsComplete(Value(path), forceChange: false)
-                }
-            default:
-                break
-            }
-
             DispatchQueue.global().async {
                 do {
                     let downloadLocation = try DownloadPackageLocationTask.downloadLibrary(
@@ -66,6 +56,12 @@ class DownloadPackageLocationRule: LocationRuleProtocol {
         static func downloadLibrary(at location: Package.Location, intoSourceRoot sourceRoot: URL, packageRoot: URL) throws -> URL {
 
             let remoteLocation = try location.remoteLocation(packageRoot: packageRoot)
+
+            // Don't try to download the current package
+            if remoteLocation.path.hasPrefix(packageRoot.path) {
+                return remoteLocation
+            }
+
             let downloadLocation = sourceRoot.appendingPathComponent(location.sha1).standardizedFileURL
 
             print("\t > Retrieving package from: \(remoteLocation.absoluteString)")
@@ -124,7 +120,7 @@ class DownloadPackageLocationRule: LocationRuleProtocol {
             print("\t\t > Downloading tar: \(at.absoluteString)")
             try Command.tryExec("/bin/rm", ["-rf", to.path])
             try Command.tryExec("/bin/mkdir", ["-p", to.path])
-            let tmpFileName = "/tmp/ibuild-download.tar.gz"
+            let tmpFileName = "/tmp/ibuild-download-\(UUID().uuidString).tar.gz"
             try Command.tryExec("/usr/bin/curl", ["-SL", at.absoluteString, "-o", tmpFileName])
             try Command.tryExec("/usr/bin/tar", ["-xz", "-f", tmpFileName, "-C", to.path, "--strip-components", "1"])
             try Command.tryExec("/bin/rm", ["-rf", tmpFileName])

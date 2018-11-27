@@ -50,6 +50,10 @@ do {
         // Build package at our package root, as well as dependencies
         let packageKey = buildSystem.keyForPackage(Package.Location.local(path: packageRoot.path))
         _ = engine.build(key: packageKey)
+
+        print("\n > Successfully built project.")
+
+        engine.close()
         
     case "clean":
         if FileManager.default.fileExists(atPath: buildRoot.path) {

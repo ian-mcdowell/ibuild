@@ -70,10 +70,12 @@ class Builder {
             "AR": try Command.tryExec("/usr/bin/xcrun", ["-find", "ar"]),
             "RANLIB": try Command.tryExec("/usr/bin/xcrun", ["-find", "ranlib"]),
             "LIBTOOL": try Command.tryExec("/usr/bin/xcrun", ["-find", "libtool"]),
+            "ARCH": architecture,
             "PKGROOT": self.packageRoot.path,
             "SRCROOT": self.sourceRoot.path,
             "SDKROOT": self.sysroot.path,
-            "BUILDROOT": self.buildProductsRoot.path
+            "BUILDROOT": self.buildProductsRoot.path,
+            "PKG_CONFIG_PATH": self.buildProductsRoot.appendingPathComponent("lib").appendingPathComponent("pkgconfig").path
         ]
 
         try self.setup()
@@ -95,7 +97,8 @@ class Builder {
             buildOutputURL: buildOutput
         )
         try self.make(
-            fromURL: configureOutput
+            fromURL: configureOutput,
+            buildOutputURL: buildOutput
         )
         try self.install(
             fromURL: configureOutput,
@@ -105,7 +108,7 @@ class Builder {
 
     fileprivate func configure(architecture: String, inURL url: URL, buildOutputURL: URL) throws {}
 
-    fileprivate func make(fromURL url: URL) throws {}
+    fileprivate func make(fromURL url: URL, buildOutputURL: URL) throws {}
 
     fileprivate func install(fromURL url: URL, toURL: URL) throws {}
 
@@ -121,7 +124,6 @@ class Builder {
                 let key = (arg as NSString).substring(with: range)
 
                 let value = env[key] ?? ""
-                print("\t > Replacing \(key) with \(value)")
                 arg = (arg as NSString).replacingCharacters(in: result.range(at: 0), with: value)
             }
             return arg
@@ -168,7 +170,7 @@ class MakeBuilder: Builder {
         )
     }
 
-    override func make(fromURL url: URL) throws {
+    override func make(fromURL url: URL, buildOutputURL: URL) throws {
         let processorCount = ProcessInfo.processInfo.processorCount
         try Command.trySpawn(
             "/usr/bin/make",
@@ -232,7 +234,7 @@ class CMakeBuilder: Builder {
         )
     }
 
-    override func make(fromURL url: URL) throws {
+    override func make(fromURL url: URL, buildOutputURL: URL) throws {
         let processorCount = ProcessInfo.processInfo.processorCount
         try Command.trySpawn(
             "/usr/bin/make",
@@ -296,7 +298,8 @@ class XcodeBuilder: Builder {
     }
 
     override func install(fromURL url: URL, toURL: URL) throws {
-        let xcodeOutputURL = toURL.appendingPathComponent("Release-\(self.platformName)")
+        let platformName = self.platformName.replacingOccurrences(of: ".internal", with: "")
+        let xcodeOutputURL = toURL.appendingPathComponent("Release-\(platformName)")
 
         for libraryName in self.buildProperties.outputs ?? [] {
             try Command.cp(from: xcodeOutputURL.appendingPathComponent(libraryName), to: toURL)
@@ -348,10 +351,12 @@ class CustomBuilder: Builder {
         )
     }
 
-    override func make(fromURL url: URL) throws {
+    override func make(fromURL url: URL, buildOutputURL: URL) throws {
         guard let makeProperty = buildProperties.customProperties?.make else { return }
 
-        var env: [String: String] = [:]
+        var env: [String: String] = [
+            "PREFIX": buildOutputURL.path
+        ]
         env = self.customEnv(env)
 
         var (make, args) = extractArgs(forCommand: makeProperty)

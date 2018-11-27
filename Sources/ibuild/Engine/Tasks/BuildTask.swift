@@ -119,24 +119,34 @@ class BuildRule: PackageRuleProtocol {
         }
 
         private func lipo() {
-            let libraryOutputs = rule.package.build?.outputs ?? []
+            let outputs = rule.package.build?.outputs ?? []
 
             // LIPO to create fat binary for each library
-            for libraryName in libraryOutputs {
-                let archMap = rule.architectures.map { arch in
-                    return (arch, result[arch]!.appendingPathComponent(libraryName))
-                }
+            for libraryName in outputs {
 
-                let libraryURL = rule.buildSystem.buildProductsRoot.appendingPathComponent(libraryName)
-                if !FileManager.default.fileExists(atPath: libraryURL.path) {
-                    do {
-                        try self.lipo(
-                            from: archMap,
-                            toURL: libraryURL
-                        )
-                    } catch {
-                        print("Lipo failed: \(error.localizedDescription)")
+                do {
+                    if libraryName.hasSuffix(".a") || libraryName.hasSuffix(".dylib") || libraryName.hasSuffix(".framework") {
+
+                        let archMap = rule.architectures.map { arch in
+                            return (arch, result[arch]!.appendingPathComponent(libraryName))
+                        }
+
+                        let libraryURL = rule.buildSystem.buildProductsRoot.appendingPathComponent(libraryName)
+                        if !FileManager.default.fileExists(atPath: libraryURL.path) {
+                            try self.lipo(
+                                from: archMap,
+                                toURL: libraryURL
+                            )
+                        }
+                    } else {
+                        if let firstArchitecture = rule.architectures.first, let url = result[firstArchitecture] {
+                            let destination = rule.buildSystem.buildProductsRoot.appendingPathComponent(libraryName)
+                            try FileManager.default.createDirectory(atPath: destination.deletingLastPathComponent().path, withIntermediateDirectories: true, attributes: nil)
+                            try Command.cp(from: url.appendingPathComponent(libraryName), to: destination)
+                        }
                     }
+                } catch {
+                    print("Lipo failed: \(error.localizedDescription)")
                 }
             }
         }
